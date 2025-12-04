@@ -9,12 +9,20 @@ const buildPath = (path: string) => `${import.meta.env.BASE_URL}${path}`;
 const deriveRoute = (): Route => {
   if (typeof window === "undefined") return "hub";
   const hash = window.location.hash.replace(/^#\/?/, "");
-  const segment = hash.split(/[/?]/)[0];
+  const [segment] = hash.split(/[/?]/);
   if (segment === "cvttweb") return "cvttweb";
   if (segment === "chud") return "chud";
   if (segment === "csmatrix") return "csmatrix";
   if (window.location.pathname.includes("/cvttweb")) return "cvttweb";
   return "hub";
+};
+
+const deriveRole = (): UserRole | null => {
+  if (typeof window === "undefined") return null;
+  const hash = window.location.hash.replace(/^#\/?/, "");
+  const [, roleSegment] = hash.split("/");
+  if (roleSegment === "player" || roleSegment === "gm") return roleSegment;
+  return null;
 };
 
 const SubAppFrame: React.FC<{ title: string; src: string; onBack: () => void; note?: string }> = ({
@@ -62,7 +70,7 @@ const CompanionShell: React.FC<{ onBack: () => void; children: React.ReactNode }
   </div>
 );
 
-const HubLanding: React.FC<{ onNavigate: (route: Route) => void }> = ({ onNavigate }) => {
+const HubLanding: React.FC<{ onNavigate: (route: Route, presetRole?: UserRole) => void }> = ({ onNavigate }) => {
   const cardStyles: React.CSSProperties = {
     border: "1px solid var(--border)",
     borderRadius: 16,
@@ -78,10 +86,19 @@ const HubLanding: React.FC<{ onNavigate: (route: Route) => void }> = ({ onNaviga
   const cards = [
     {
       id: "cvttweb" as Route,
-      title: "Collapse Companion",
-      description: "Player and GM tools (world events, deck builder, engram ops) with offline PWA support.",
-      cta: "Open Companion",
+      title: "Companion — Player",
+      description: "Player-facing tools with read-only world events and the deck builder.",
+      cta: "Enter Player Mode",
       subtitle: "In-app",
+      role: "player" as UserRole,
+    },
+    {
+      id: "cvttweb" as Route,
+      title: "Companion — GM",
+      description: "GM tools with editable social matrix, world events unlocks, and deck builder.",
+      cta: "Enter GM Mode",
+      subtitle: "In-app",
+      role: "gm" as UserRole,
     },
     {
       id: "chud" as Route,
@@ -141,7 +158,7 @@ const HubLanding: React.FC<{ onNavigate: (route: Route) => void }> = ({ onNaviga
                 </div>
                 <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>{card.description}</p>
               </div>
-              <button onClick={() => onNavigate(card.id)}>{card.cta}</button>
+              <button onClick={() => onNavigate(card.id, card.role)}>{card.cta}</button>
             </div>
           ))}
         </div>
@@ -152,7 +169,7 @@ const HubLanding: React.FC<{ onNavigate: (route: Route) => void }> = ({ onNaviga
 
 export default function App() {
   const [route, setRoute] = useState<Route>(() => deriveRoute());
-  const [role, setRole] = useState<UserRole | null>(null);
+  const [role, setRole] = useState<UserRole | null>(() => deriveRole());
 
   const subApps = useMemo(
     () => ({
@@ -171,7 +188,11 @@ export default function App() {
   );
 
   useEffect(() => {
-    const syncRoute = () => setRoute(deriveRoute());
+    const syncRoute = () => {
+      setRoute(deriveRoute());
+      const hashRole = deriveRole();
+      if (hashRole) setRole(hashRole);
+    };
     syncRoute();
     window.addEventListener("hashchange", syncRoute);
     window.addEventListener("popstate", syncRoute);
@@ -183,11 +204,11 @@ export default function App() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const desiredHash = `#/${route}`;
+    const desiredHash = route === "cvttweb" && role ? `#/${route}/${role}` : `#/${route}`;
     if (window.location.hash !== desiredHash) {
       window.location.hash = desiredHash;
     }
-  }, [route]);
+  }, [route, role]);
 
   if (route === "cvttweb") {
     if (!role) {
@@ -222,5 +243,12 @@ export default function App() {
     );
   }
 
-  return <HubLanding onNavigate={(next) => setRoute(next)} />;
+  return (
+    <HubLanding
+      onNavigate={(next, presetRole) => {
+        if (presetRole) setRole(presetRole);
+        setRoute(next);
+      }}
+    />
+  );
 }
