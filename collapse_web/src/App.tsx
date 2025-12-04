@@ -1,20 +1,51 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import RoleSelectLanding, { UserRole } from "./components/RoleSelectLanding";
 import DeckBuilder from "./pages/DeckBuilder";
 
-type Route = "hub" | "cvttweb";
+type Route = "hub" | "cvttweb" | "chud" | "csmatrix";
 
 const buildPath = (path: string) => `${import.meta.env.BASE_URL}${path}`;
 
 const deriveRoute = (): Route => {
   if (typeof window === "undefined") return "hub";
   const hash = window.location.hash.replace(/^#\/?/, "");
-  if (hash.startsWith("cvttweb")) return "cvttweb";
+  const segment = hash.split(/[/?]/)[0];
+  if (segment === "cvttweb") return "cvttweb";
+  if (segment === "chud") return "chud";
+  if (segment === "csmatrix") return "csmatrix";
   if (window.location.pathname.includes("/cvttweb")) return "cvttweb";
   return "hub";
 };
 
-const HubLanding: React.FC<{ onLaunchCvtt: () => void }> = ({ onLaunchCvtt }) => {
+const SubAppFrame: React.FC<{ title: string; src: string; onBack: () => void; note?: string }> = ({
+  title,
+  src,
+  onBack,
+  note,
+}) => {
+  return (
+    <main style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <header style={{ padding: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <h1 style={{ margin: 0 }}>{title}</h1>
+          {note ? <p style={{ margin: 0, color: "var(--muted)" }}>{note}</p> : null}
+        </div>
+        <button onClick={onBack}>← Back to hub</button>
+      </header>
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <iframe
+          title={title}
+          src={src}
+          style={{ border: "none", width: "100%", height: "100%" }}
+          allow="fullscreen"
+          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-pointer-lock"
+        />
+      </div>
+    </main>
+  );
+};
+
+const HubLanding: React.FC<{ onNavigate: (route: Route) => void }> = ({ onNavigate }) => {
   const cardStyles: React.CSSProperties = {
     border: "1px solid var(--border)",
     borderRadius: 16,
@@ -27,34 +58,27 @@ const HubLanding: React.FC<{ onLaunchCvtt: () => void }> = ({ onLaunchCvtt }) =>
     gap: "0.75rem",
   };
 
-  const openExternal = (path: string) => {
-    window.location.href = buildPath(path);
-  };
-
   const cards = [
     {
-      id: "cvttweb",
+      id: "cvttweb" as Route,
       title: "Collapse Companion",
       description: "Player and GM tools (world events, deck builder, engram ops) with offline PWA support.",
-      action: onLaunchCvtt,
       cta: "Open Companion",
-      subtitle: "Runs inside this PWA",
+      subtitle: "In-app",
     },
     {
-      id: "chud",
+      id: "chud" as Route,
       title: "cHUD",
       description: "Compact HUD for derived stats; keep it alongside your session.",
-      action: () => openExternal("chud/"),
       cta: "Open cHUD",
-      subtitle: "Standalone page",
+      subtitle: "In-app",
     },
     {
-      id: "csmatrix",
+      id: "csmatrix" as Route,
       title: "CS Matrix",
       description: "Campaign Support Matrix with draggable nodes, meters, and node drawers.",
-      action: () => openExternal("csmatrix/"),
       cta: "Open CS Matrix",
-      subtitle: "Standalone page",
+      subtitle: "In-app",
     },
   ];
 
@@ -65,7 +89,7 @@ const HubLanding: React.FC<{ onLaunchCvtt: () => void }> = ({ onLaunchCvtt }) =>
           <div>
             <h1 style={{ margin: "0 0 0.35rem 0" }}>Collapse Full Build</h1>
             <p style={{ margin: 0, color: "var(--muted)" }}>
-              Launch any build directly. Each page works independently and stays offline once loaded.
+              Launch any build directly. Each experience runs inside this PWA and stays offline once loaded.
             </p>
           </div>
           <span style={{ color: "var(--muted)", fontSize: "0.95rem" }}>{buildPath("")}</span>
@@ -80,7 +104,7 @@ const HubLanding: React.FC<{ onLaunchCvtt: () => void }> = ({ onLaunchCvtt }) =>
                 </div>
                 <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>{card.description}</p>
               </div>
-              <button onClick={card.action}>{card.cta}</button>
+              <button onClick={() => onNavigate(card.id)}>{card.cta}</button>
             </div>
           ))}
         </div>
@@ -92,6 +116,22 @@ const HubLanding: React.FC<{ onLaunchCvtt: () => void }> = ({ onLaunchCvtt }) =>
 export default function App() {
   const [route, setRoute] = useState<Route>(() => deriveRoute());
   const [role, setRole] = useState<UserRole | null>(null);
+
+  const subApps = useMemo(
+    () => ({
+      chud: {
+        title: "cHUD — Compact HUD",
+        src: buildPath("chud/"),
+        note: "Loaded inside the fullbuild shell.",
+      },
+      csmatrix: {
+        title: "CS Matrix",
+        src: buildPath("csmatrix/"),
+        note: "Campaign Support Matrix (in-app iframe).",
+      },
+    }),
+    []
+  );
 
   useEffect(() => {
     const syncRoute = () => setRoute(deriveRoute());
@@ -105,8 +145,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (route === "cvttweb" && (typeof window !== "undefined") && !window.location.hash.includes("cvttweb")) {
-      window.location.hash = "#/cvttweb";
+    if (typeof window === "undefined") return;
+    const desiredHash = `#/${route}`;
+    if (window.location.hash !== desiredHash) {
+      window.location.hash = desiredHash;
     }
   }, [route]);
 
@@ -117,5 +159,27 @@ export default function App() {
     return <DeckBuilder />;
   }
 
-  return <HubLanding onLaunchCvtt={() => setRoute("cvttweb")} />;
+  if (route === "chud") {
+    return (
+      <SubAppFrame
+        title={subApps.chud.title}
+        src={subApps.chud.src}
+        note={subApps.chud.note}
+        onBack={() => setRoute("hub")}
+      />
+    );
+  }
+
+  if (route === "csmatrix") {
+    return (
+      <SubAppFrame
+        title={subApps.csmatrix.title}
+        src={subApps.csmatrix.src}
+        note={subApps.csmatrix.note}
+        onBack={() => setRoute("hub")}
+      />
+    );
+  }
+
+  return <HubLanding onNavigate={(next) => setRoute(next)} />;
 }
