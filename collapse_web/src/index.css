@@ -112,16 +112,16 @@ main {
 
 .app-shell {
   width: 100%;
-  margin: 0;
-  padding: 0;
+  margin: 0 auto;
+  padding: 0.8rem 0.9rem;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 @media (min-width: 960px) {
   .app-shell {
-    width: 100%;
-    padding: 0;
+    width: min(100%, 1100px);
+    padding: 0.1rem;
   }
 }
 
@@ -176,7 +176,7 @@ main {
 .page {
   flex: 0 0 100%;
   width: 100%;
-  padding: 0;
+  padding: 0.1rem;
   box-sizing: border-box;
   max-width: 100%;
   overflow-x: hidden;
@@ -699,9 +699,9 @@ code {
   display: flex;
   flex-wrap: nowrap;
   overflow-x: auto;
-  gap: 12px;
-  padding: 0;
-  margin: 0;
+  gap: 16px;
+  padding: 4px 8px 10px;
+  margin: 0 -12px;
   scroll-snap-type: x mandatory;
 }
 .card-grid.carousel .card {
