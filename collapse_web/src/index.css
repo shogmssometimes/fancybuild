@@ -121,7 +121,7 @@ main {
 @media (min-width: 960px) {
   .app-shell {
     width: min(100%, 1100px);
-    padding: 1rem;
+    padding: 0.1rem;
   }
 }
 
@@ -176,7 +176,7 @@ main {
 .page {
   flex: 0 0 100%;
   width: 100%;
-  padding: 1rem;
+  padding: 0.1rem;
   box-sizing: border-box;
   max-width: 100%;
   overflow-x: hidden;
