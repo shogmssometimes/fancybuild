@@ -645,18 +645,22 @@ code {
   display: flex;
   flex-wrap: nowrap;
   overflow-x: auto;
-  gap: 12px;
-  padding: 4px 4px 12px;
-  margin: 0 -8px;
+  gap: 16px;
+  padding: 4px 8px 16px;
+  margin: 0 -12px;
   scroll-snap-type: x mandatory;
 }
 .card-grid.carousel .card {
-  min-width: 180px;
+  min-width: 92%;
+  max-width: 92%;
+  min-height: 320px;
+  padding: 14px;
   scroll-snap-align: start;
 }
 @media (max-width: 768px) {
   .card-grid.carousel .card {
-    min-width: 160px;
+    min-width: 94%;
+    max-width: 94%;
   }
 }
 
