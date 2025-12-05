@@ -708,27 +708,27 @@ code {
   scroll-snap-type: x mandatory;
 }
 .card-grid.carousel .card {
-  min-width: 92%;
-  max-width: 92%;
+  min-width: 100%;
+  max-width: 100%;
   min-height: 360px;
   padding: 14px;
   scroll-snap-align: start;
 }
 /* Base cards: show two per swipe with a shorter frame */
 .card-grid.carousel.base-card-grid .card {
-  min-width: clamp(120px, 36vw, 192px);
-  max-width: clamp(120px, 36vw, 192px);
+  min-width: 100%;
+  max-width: 100%;
   min-height: 144px;
 }
 /* Modifier cards: slightly narrower to fit more copy */
 .card-grid.carousel.mod-card-grid .card {
-  min-width: clamp(260px, 78vw, 380px);
-  max-width: clamp(260px, 78vw, 380px);
+  min-width: 100%;
+  max-width: 100%;
 }
 @media (max-width: 768px) {
   .card-grid.carousel .card {
-    min-width: 94%;
-    max-width: 94%;
+    min-width: 100%;
+    max-width: 100%;
   }
 }
 
