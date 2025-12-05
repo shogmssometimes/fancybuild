@@ -701,9 +701,9 @@ code {
   display: flex;
   flex-wrap: nowrap;
   overflow-x: auto;
-  gap: 0;
+  gap: 12px;
   padding: 0;
-  margin: 0;
+  margin: 0 calc(var(--carousel-bleed) * -1);
   width: 100vw;
   scroll-snap-type: x mandatory;
 }
