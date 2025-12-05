@@ -359,6 +359,21 @@ main {
 /* Ensure long header line wraps inside the left column to avoid pushing right controls out */
 .card > div > div:first-child { overflow-wrap: anywhere; word-break: break-word; white-space: normal; }
 
+
+.card.base-card, .card.mod-card {
+  display: flex;
+  flex-direction: column;
+}
+.card-controls-bottom {
+  justify-content: center;
+  margin-top: auto;
+  width: 100%;
+  gap: 10px;
+}
+.card-controls-bottom .counter-value {
+  font-weight: 700;
+}
+
 /* Base-card-specific header adjustments to ensure control buttons remain inside the card border */
 .card-grid.base-card-grid .card > div { overflow: hidden; }
 .card-grid.base-card-grid .card > div > div:last-child { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }

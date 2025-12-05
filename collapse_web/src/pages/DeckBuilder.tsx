@@ -826,12 +826,12 @@ export default function DeckBuilder({
                   const isSelectedBase = activePlay?.baseId === card.id
                   return (
                     <div key={card.id} className={`card base-card ${compactView ? 'compact' : ''} ${isSelectedBase ? 'is-selected' : ''}`}>
-                      <div className="card-header">
+                      <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: '100%' }}>
                         <div className="card-title" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                           <div className="card-name">{card.name}</div>
                           {isSelectedBase && <div className="accent text-footnote">Selected Base</div>}
                         </div>
-                        <div className="card-controls">
+                        <div className="card-controls card-controls-bottom">
                           <button className="counter-btn" onClick={() => adjustBaseCount(card.id, -1)} disabled={qty === 0 || builderState.isLocked}>-</button>
                           <div className="counter-value">{qty}</div>
                           <button className="counter-btn" onClick={() => adjustBaseCount(card.id, 1)} disabled={!simpleCounters && (baseTotal >= baseTarget || builderState.isLocked)}>+</button>
@@ -870,20 +870,22 @@ export default function DeckBuilder({
                   const isAttached = activePlay?.mods?.includes(card.id)
                   return (
                     <div key={card.id} className={`card mod-card ${compactView ? 'compact' : ''} ${isAttached ? 'is-selected' : ''}`}>
-                      <div className="card-header" style={{ gap: 12 }}>
-                        <div className="card-title" style={{ minWidth: 0, flex: '1 1 auto' }}>
-                          <div className="card-name">{card.name}</div>
-                          <div className="muted text-body">Cost {cost}</div>
-                          {isAttached && <div className="accent text-footnote" style={{ marginTop: 4 }}>Attached</div>}
+                      <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: '100%' }}>
+                        <div className="card-header" style={{ gap: 12, padding: 0 }}>
+                          <div className="card-title" style={{ minWidth: 0, flex: '1 1 auto' }}>
+                            <div className="card-name">{card.name}</div>
+                            <div className="muted text-body">Cost {cost}</div>
+                            {isAttached && <div className="accent text-footnote" style={{ marginTop: 4 }}>Attached</div>}
+                          </div>
                         </div>
-                        <div className="card-controls">
+                        {showCardDetails && card.text && <p className="text-body" style={{ margin: 0 }}>{card.text}</p>}
+                        {renderDetails(card)}
+                        <div className="card-controls card-controls-bottom">
                           <button className="counter-btn" onClick={() => adjustModCount(card.id, -1)} disabled={qty === 0 || builderState.isLocked}>-</button>
                           <div className="counter-value">{qty}</div>
                           <button className="counter-btn" onClick={() => adjustModCount(card.id, 1)} disabled={builderState.isLocked || (!simpleCounters && !canAddModCard(card.id))}>+</button>
                         </div>
                       </div>
-                      {showCardDetails && card.text && <p className="text-body" style={{ margin: 0 }}>{card.text}</p>}
-                      {renderDetails(card)}
                     </div>
                   )
                 })}
