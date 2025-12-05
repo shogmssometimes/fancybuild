@@ -158,6 +158,7 @@ export default function DeckBuilder({
   const [pageIndex, setPageIndex] = useState(0)
   const [compactView, setCompactView] = useState(true)
   const [dragOffset, setDragOffset] = useState(0)
+  const [dockOpen, setDockOpen] = useState(false)
   const dragStartRef = useRef<number | null>(null)
   const pointerDownRef = useRef(false)
 
@@ -379,6 +380,7 @@ export default function DeckBuilder({
     })
     setDeckSeed((s) => s + 1)
   }
+  const toggleDock = () => setDockOpen((v) => !v)
 
   const loadSavedDeck = (name: string) => {
     setBuilderState((prev) => {
@@ -772,82 +774,78 @@ export default function DeckBuilder({
             </section>
             
 
-            {!simpleCounters && (
-              <>
-                <section className="compact">
-                  <h2>Base Cards</h2>
-                  <p className="muted" style={{ marginTop: 0 }}>Add base cards until you reach {baseTarget} total base cards.</p>
-                  <div className={`card-grid base-card-grid ${compactView ? 'compact' : ''}`}>
-                    {baseCards.map((card) => {
-                      const qty = builderState.baseCounts[card.id] ?? 0
-                      const isSelectedBase = activePlay?.baseId === card.id
-                      return (
-                        <div key={card.id} className={`card base-card ${compactView ? 'compact' : ''} ${isSelectedBase ? 'is-selected' : ''}`}>
-                          <div className="card-header">
-                            <div className="card-title" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                              <div className="card-name">{card.name}</div>
-                              {isSelectedBase && <div className="accent text-footnote">Selected Base</div>}
-                            </div>
-                            <div className="card-controls">
-                              <button className="counter-btn" onClick={() => adjustBaseCount(card.id, -1)} disabled={qty === 0 || builderState.isLocked}>-</button>
-                              <div className="counter-value">{qty}</div>
-                              <button className="counter-btn" onClick={() => adjustBaseCount(card.id, 1)} disabled={baseTotal >= baseTarget || builderState.isLocked}>+</button>
-                            </div>
-                          </div>
+            <section className="compact">
+              <h2>Base Cards</h2>
+              <p className="muted" style={{ marginTop: 0 }}>Add base cards until you reach {baseTarget} total base cards.</p>
+              <div className={`card-grid base-card-grid ${compactView ? 'compact' : ''} carousel`}>
+                {baseCards.map((card) => {
+                  const qty = builderState.baseCounts[card.id] ?? 0
+                  const isSelectedBase = activePlay?.baseId === card.id
+                  return (
+                    <div key={card.id} className={`card base-card ${compactView ? 'compact' : ''} ${isSelectedBase ? 'is-selected' : ''}`}>
+                      <div className="card-header">
+                        <div className="card-title" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <div className="card-name">{card.name}</div>
+                          {isSelectedBase && <div className="accent text-footnote">Selected Base</div>}
                         </div>
-                      )
-                    })}
-                  </div>
-                </section>
-
-                <section className="compact" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <h2 style={{ marginBottom: 4 }}>Modifier Cards</h2>
-                      <p className="muted" style={{ marginTop: 0 }}>Each modifier consumes capacity equal to its card cost. Stay within your Engram Modifier Capacity.</p>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <label style={{ fontWeight: 600 }}>Modifier Capacity</label>
-                      <div className="counter-inline" role="group" aria-label="Adjust modifier capacity">
-                        <button className="counter-btn" onClick={() => adjustModifierCapacity(-1)}>-</button>
-                        <div className="counter-value counter-pill">{builderState.modifierCapacity}</div>
-                        <button className="counter-btn" onClick={() => adjustModifierCapacity(1)}>+</button>
+                        <div className="card-controls">
+                          <button className="counter-btn" onClick={() => adjustBaseCount(card.id, -1)} disabled={qty === 0 || builderState.isLocked}>-</button>
+                          <div className="counter-value">{qty}</div>
+                          <button className="counter-btn" onClick={() => adjustBaseCount(card.id, 1)} disabled={!simpleCounters && (baseTotal >= baseTarget || builderState.isLocked)}>+</button>
+                        </div>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <label style={{ fontWeight: 600 }}>Search Mods</label>
-                      <input type="text" placeholder="Search name, target, effect" value={modSearch} onChange={(event) => setModSearch(event.target.value)} style={{ minWidth: 0, width: '100%' }} />
-                    </div>
-                  </div>
+                  )
+                })}
+              </div>
+            </section>
 
-                  <div className={`card-grid mod-card-grid ${compactView ? 'compact' : ''}`}>
-                    {filteredModCards.map((card) => {
-                      const qty = builderState.modCounts[card.id] ?? 0
-                      const cost = card.cost ?? 0
-                      const isAttached = activePlay?.mods?.includes(card.id)
-                      return (
-                        <div key={card.id} className={`card mod-card ${compactView ? 'compact' : ''} ${isAttached ? 'is-selected' : ''}`}>
-                          <div className="card-header" style={{ gap: 12 }}>
-                            <div className="card-title" style={{ minWidth: 0, flex: '1 1 auto' }}>
-                              <div className="card-name">{card.name}</div>
-                              <div className="muted text-body">Cost {cost}</div>
-                              {isAttached && <div className="accent text-footnote" style={{ marginTop: 4 }}>Attached</div>}
-                            </div>
-                            <div className="card-controls">
-                              <button className="counter-btn" onClick={() => adjustModCount(card.id, -1)} disabled={qty === 0 || builderState.isLocked}>-</button>
-                              <div className="counter-value">{qty}</div>
-                              <button className="counter-btn" onClick={() => adjustModCount(card.id, 1)} disabled={builderState.isLocked || !canAddModCard(card.id)}>+</button>
-                            </div>
-                          </div>
-                          {showCardDetails && card.text && <p className="text-body" style={{ margin: 0 }}>{card.text}</p>}
-                          {renderDetails(card)}
-                        </div>
-                      )
-                    })}
+            <section className="compact" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h2 style={{ marginBottom: 4 }}>Modifier Cards</h2>
+                  <p className="muted" style={{ marginTop: 0 }}>Each modifier consumes capacity equal to its card cost. Stay within your Engram Modifier Capacity.</p>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <label style={{ fontWeight: 600 }}>Modifier Capacity</label>
+                  <div className="counter-inline" role="group" aria-label="Adjust modifier capacity">
+                    <button className="counter-btn" onClick={() => adjustModifierCapacity(-1)}>-</button>
+                    <div className="counter-value counter-pill">{builderState.modifierCapacity}</div>
+                    <button className="counter-btn" onClick={() => adjustModifierCapacity(1)}>+</button>
                   </div>
-                </section>
-              </>
-            )}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <label style={{ fontWeight: 600 }}>Search Mods</label>
+                  <input type="text" placeholder="Search name, target, effect" value={modSearch} onChange={(event) => setModSearch(event.target.value)} style={{ minWidth: 0, width: '100%' }} />
+                </div>
+              </div>
+
+              <div className={`card-grid mod-card-grid ${compactView ? 'compact' : ''} carousel`}>
+                {filteredModCards.map((card) => {
+                  const qty = builderState.modCounts[card.id] ?? 0
+                  const cost = card.cost ?? 0
+                  const isAttached = activePlay?.mods?.includes(card.id)
+                  return (
+                    <div key={card.id} className={`card mod-card ${compactView ? 'compact' : ''} ${isAttached ? 'is-selected' : ''}`}>
+                      <div className="card-header" style={{ gap: 12 }}>
+                        <div className="card-title" style={{ minWidth: 0, flex: '1 1 auto' }}>
+                          <div className="card-name">{card.name}</div>
+                          <div className="muted text-body">Cost {cost}</div>
+                          {isAttached && <div className="accent text-footnote" style={{ marginTop: 4 }}>Attached</div>}
+                        </div>
+                        <div className="card-controls">
+                          <button className="counter-btn" onClick={() => adjustModCount(card.id, -1)} disabled={qty === 0 || builderState.isLocked}>-</button>
+                          <div className="counter-value">{qty}</div>
+                          <button className="counter-btn" onClick={() => adjustModCount(card.id, 1)} disabled={builderState.isLocked || (!simpleCounters && !canAddModCard(card.id))}>+</button>
+                        </div>
+                      </div>
+                      {showCardDetails && card.text && <p className="text-body" style={{ margin: 0 }}>{card.text}</p>}
+                      {renderDetails(card)}
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
 
           </div>
 
@@ -967,6 +965,46 @@ export default function DeckBuilder({
               </div>
 
           </Pager>
+
+      <div className={`deck-dock ${dockOpen ? 'open' : ''}`} onClick={toggleDock} role="button" aria-label="Toggle deck dock">
+        <div className="deck-dock-handle" />
+        <div className="deck-dock-stats">
+          <span>Deck {builderState.deck?.length ?? 0}</span>
+          <span>Hand {builderState.hand?.length ?? 0}</span>
+          <span>Discard {builderState.discard?.length ?? 0}</span>
+        </div>
+        {dockOpen && (
+          <div className="deck-dock-body">
+            <div className="deck-dock-section">
+              <div className="deck-dock-title">Deck</div>
+              <div className="deck-dock-chips">
+                {(builderState.deck ?? []).map((id, idx) => (
+                  <span key={`${id}-${idx}`} className="deck-chip">{getCard(id)?.name ?? id}</span>
+                ))}
+                {(builderState.deck ?? []).length === 0 && <div className="muted">Empty</div>}
+              </div>
+            </div>
+            <div className="deck-dock-section">
+              <div className="deck-dock-title">Hand</div>
+              <div className="deck-dock-chips">
+                {(builderState.hand ?? []).map((h, idx) => (
+                  <span key={`${h.id}-${idx}`} className="deck-chip">{getCard(h.id)?.name ?? h.id}</span>
+                ))}
+                {(builderState.hand ?? []).length === 0 && <div className="muted">Empty</div>}
+              </div>
+            </div>
+            <div className="deck-dock-section">
+              <div className="deck-dock-title">Discard</div>
+              <div className="deck-dock-chips">
+                {(builderState.discard ?? []).map((d, idx) => (
+                  <span key={`${d.id}-${idx}`} className="deck-chip">{getCard(d.id)?.name ?? d.id}</span>
+                ))}
+                {(builderState.discard ?? []).length === 0 && <div className="muted">Empty</div>}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="pager-nav" style={{display:'flex',justifyContent:'center',marginTop:12,gap:8}}>
           {[{i:0,label:'Builder'},{i:1,label:'Deck Ops'}].map(({i,label}) => (
