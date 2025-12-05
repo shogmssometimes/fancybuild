@@ -74,21 +74,29 @@ const CompanionShell: React.FC<{ onBack: () => void; children: React.ReactNode }
 const ChudDock: React.FC<{ basePath: string }> = ({ basePath }) => {
   const [open, setOpen] = React.useState(false);
   return (
-    <div className={`chud-dock ${open ? "open" : ""}`}>
-      <button className="chud-dock-toggle" onClick={() => setOpen((v) => !v)}>
-        {open ? "Hide cHUD" : "Show cHUD"}
+    <>
+      <button className="chud-fab" onClick={() => setOpen(true)} aria-label="Open cHUD overlay">
+        cHUD
       </button>
       {open && (
-        <div className="chud-dock-frame">
-          <iframe
-            title="cHUD"
-            src={`${basePath}chud/`}
-            allow="fullscreen"
-            sandbox="allow-same-origin allow-scripts allow-forms allow-pointer-lock"
-          />
+        <div className="chud-overlay" role="dialog" aria-modal="true" aria-label="cHUD overlay">
+          <div className="chud-sheet">
+            <div className="chud-sheet-header">
+              <span>cHUD</span>
+              <button className="chud-close" onClick={() => setOpen(false)} aria-label="Close cHUD">✕</button>
+            </div>
+            <div className="chud-sheet-body">
+              <iframe
+                title="cHUD"
+                src={`${basePath}chud/`}
+                allow="fullscreen"
+                sandbox="allow-same-origin allow-scripts allow-forms allow-pointer-lock"
+              />
+            </div>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 
