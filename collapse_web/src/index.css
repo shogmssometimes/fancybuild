@@ -813,7 +813,7 @@ code {
   box-shadow: 0 20px 40px rgba(0,0,0,0.5);
   display: flex;
   flex-direction: column;
-  max-height: 94vh;
+  max-height: 96vh;
 }
 .chud-sheet-header {
   display: flex;
@@ -833,15 +833,18 @@ code {
 }
 .chud-sheet-body {
   flex: 1;
-  min-height: 70vh;
+  min-height: 80vh;
+  height: 80vh;
+  overflow: hidden;
 }
 .chud-sheet-body iframe {
   width: 100%;
   height: 100%;
+  display: block;
   border: none;
 }
 @media (max-width: 768px) {
-  .chud-sheet { max-height: 90vh; }
-  .chud-sheet-body { min-height: 65vh; }
+  .chud-sheet { max-height: 96vh; }
+  .chud-sheet-body { min-height: 78vh; height: 78vh; }
 }
 }
