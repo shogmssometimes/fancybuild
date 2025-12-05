@@ -382,6 +382,11 @@ export default function DeckBuilder({
     setDeckSeed((s) => s + 1)
   }
   const toggleDock = () => setDockOpen((v) => !v)
+  const openChud = () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('chud-open'))
+    }
+  }
 
   const loadSavedDeck = (name: string) => {
     setBuilderState((prev) => {
@@ -1016,6 +1021,7 @@ export default function DeckBuilder({
             <button onClick={toggleLockDeck}>{builderState.isLocked ? 'Unlock' : 'Build/Lock'}</button>
             <button onClick={shuffleDeck}>Shuffle</button>
             <button onClick={draw}>Draw 1</button>
+            <button onClick={openChud}>cHUD</button>
           </div>
         </div>
         {dockOpen && (

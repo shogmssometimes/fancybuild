@@ -73,6 +73,11 @@ const CompanionShell: React.FC<{ onBack: () => void; children: React.ReactNode }
 
 const ChudDock: React.FC<{ basePath: string }> = ({ basePath }) => {
   const [open, setOpen] = React.useState(false);
+  React.useEffect(() => {
+    const handler = () => setOpen(true);
+    window.addEventListener("chud-open", handler as EventListener);
+    return () => window.removeEventListener("chud-open", handler as EventListener);
+  }, []);
   return (
     <>
       <button className="chud-fab" onClick={() => setOpen(true)} aria-label="Open cHUD overlay">

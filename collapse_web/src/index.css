@@ -186,12 +186,11 @@ main {
    content doesn't force the page wider than the viewport. Adjust the
    subtraction value if your header or pager sizes change. */
 .page {
-  /* Use the header height variable so we can tune across devices */
-  height: calc(100vh - var(--app-header-height));
-  max-height: calc(100vh - var(--app-header-height));
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain; /* lock overscroll to the page container */
+  /* Allow natural flow to avoid nested scrolls; main page scroll only */
+  min-height: calc(100vh - var(--app-header-height));
+  height: auto;
+  max-height: none;
+  overflow: visible;
 }
 .pager-nav {
   display:flex;
@@ -652,12 +651,12 @@ code {
   scroll-snap-type: x mandatory;
 }
 .card-grid.carousel .card {
-  min-width: 220px;
+  min-width: 180px;
   scroll-snap-align: start;
 }
 @media (max-width: 768px) {
   .card-grid.carousel .card {
-    min-width: 180px;
+    min-width: 160px;
   }
 }
 
