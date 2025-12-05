@@ -709,8 +709,8 @@ code {
 }
 /* Base cards: show two per swipe with a shorter frame */
 .card-grid.carousel.base-card-grid .card {
-  min-width: clamp(280px, 85vw, 420px);
-  max-width: clamp(280px, 85vw, 420px);
+  min-width: clamp(200px, 60vw, 320px);
+  max-width: clamp(200px, 60vw, 320px);
   min-height: 144px;
 }
 /* Modifier cards: slightly narrower to fit more copy */
