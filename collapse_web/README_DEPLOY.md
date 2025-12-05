@@ -15,6 +15,13 @@ Manual deploy:
   npm ci
   npm run build
   ```
+- GM-only local bundle (keeps player build untouched)
+  ```bash
+  cd collapse_web
+  npm ci
+  npm run build:gm-local
+  # Output: collapse_web/docs-gm (uses gm.html entry, relative base for offline use)
+  ```
 -- (Optional) Push to `gh-pages` manually (overwrite `gh-pages` with the built `docs` directory):
   ```bash
   # From repository root

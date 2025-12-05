@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import RoleSelectLanding, { UserRole } from "./components/RoleSelectLanding";
 import DeckBuilder from "./pages/DeckBuilder";
 
-type Route = "hub" | "cvttweb" | "chud" | "csmatrix";
+type Route = "hub" | "cvttweb" | "chud" | "csmatrix" | "gm";
 
 const buildPath = (path: string) => `${import.meta.env.BASE_URL}${path}`;
 
@@ -13,6 +13,7 @@ const deriveRoute = (): Route => {
   if (segment === "cvttweb") return "cvttweb";
   if (segment === "chud") return "chud";
   if (segment === "csmatrix") return "csmatrix";
+  if (segment === "gm") return "gm";
   if (window.location.pathname.includes("/cvttweb")) return "cvttweb";
   return "hub";
 };
@@ -93,12 +94,11 @@ const HubLanding: React.FC<{ onNavigate: (route: Route, presetRole?: UserRole) =
       role: "player" as UserRole,
     },
     {
-      id: "cvttweb" as Route,
-      title: "Companion — GM",
-      description: "GM tools with editable social matrix, world events unlocks, and deck builder.",
-      cta: "Enter GM Mode",
-      subtitle: "In-app",
-      role: "gm" as UserRole,
+      id: "gm" as Route,
+      title: "Companion — GM (Standalone)",
+      description: "GM-only deck tools (pure counts). Player app remains unchanged.",
+      cta: "Launch GM Companion",
+      subtitle: "Standalone",
     },
     {
       id: "chud" as Route,
@@ -209,6 +209,17 @@ export default function App() {
       window.location.hash = desiredHash;
     }
   }, [route, role]);
+
+  if (route === "gm") {
+    return (
+      <SubAppFrame
+        title="Companion — GM"
+        src={buildPath("gm.html")}
+        onBack={() => setRoute("hub")}
+        note="GM-only view; player app remains unchanged."
+      />
+    );
+  }
 
   if (route === "cvttweb") {
     if (!role) {

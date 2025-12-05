@@ -2,18 +2,18 @@ import path from "path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
+// Local-only GM build. Uses its own output directory and relative base so it can
+// be opened directly from disk or served locally without affecting the player build.
 export default defineConfig({
-  // Serve the combined build under the GitHub Pages repo path.
-  base: "/fullbuild/",
+  base: "./",
   build: {
-    outDir: "docs",
+    outDir: "docs-gm",
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        main: path.resolve(__dirname, "index.html"),
         gm: path.resolve(__dirname, "gm.html"),
       },
     },
   },
-  plugins: [react()]
+  plugins: [react()],
 });
