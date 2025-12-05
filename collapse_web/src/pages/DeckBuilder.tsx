@@ -159,6 +159,7 @@ export default function DeckBuilder({
   const [compactView, setCompactView] = useState(true)
   const [dragOffset, setDragOffset] = useState(0)
   const [dockOpen, setDockOpen] = useState(false)
+  const [dockView, setDockView] = useState<'deck' | 'hand' | 'discard'>('deck')
   const dragStartRef = useRef<number | null>(null)
   const pointerDownRef = useRef(false)
 
@@ -599,6 +600,7 @@ export default function DeckBuilder({
             ) : (
               <button onClick={() => attachModifier(id)} disabled={!canAttach}>Attach</button>
             )}
+            <button onClick={() => playSingleFromHand(id)}>Play</button>
             <button onClick={() => discardGroupFromHand(id, false, 'discarded')}>Discard One</button>
             {group.count > 1 && (
               <button onClick={() => discardGroupFromHand(id, true, 'discarded')}>Discard Stack</button>
@@ -611,6 +613,30 @@ export default function DeckBuilder({
       )
     })
   })()
+
+  const dockDeckGroups = useMemo(() => {
+    const groups = (builderState.deck ?? []).reduce((acc: Record<string, number>, id) => {
+      acc[id] = (acc[id] ?? 0) + 1
+      return acc
+    }, {})
+    return Object.entries(groups)
+  }, [builderState.deck])
+
+  const dockHandGroups = useMemo(() => {
+    const groups = (builderState.hand ?? []).reduce((acc: Record<string, number>, h) => {
+      acc[h.id] = (acc[h.id] ?? 0) + 1
+      return acc
+    }, {})
+    return Object.entries(groups)
+  }, [builderState.hand])
+
+  const dockDiscardGroups = useMemo(() => {
+    const groups = (builderState.discard ?? []).reduce((acc: Record<string, number>, d) => {
+      acc[d.id] = (acc[d.id] ?? 0) + 1
+      return acc
+    }, {})
+    return Object.entries(groups)
+  }, [builderState.discard])
 
   // Move grouped items from hand to discard (single or all)
   function discardGroupFromHand(cardId: string, all = false, origin: 'played' | 'discarded' = 'discarded') {
@@ -627,6 +653,18 @@ export default function DeckBuilder({
       }
       if (removed.length === 0) return prev
       const discard = [...(prev.discard ?? []), ...removed.map(r => ({ id: r.id, origin }))]
+      return { ...prev, hand, discard }
+    })
+  }
+
+  function playSingleFromHand(cardId: string) {
+    setBuilderState((prev): DeckBuilderState => {
+      const hand = [...(prev.hand ?? [])]
+      const idx = hand.findIndex((h) => h.id === cardId)
+      if (idx === -1) return prev
+      const item = hand.splice(idx, 1)[0]
+      const discardEntry: { id: string; origin: 'played' | 'discarded' } = { id: item.id, origin: 'played' }
+      const discard = [...(prev.discard ?? []), discardEntry]
       return { ...prev, hand, discard }
     })
   }
@@ -966,41 +1004,75 @@ export default function DeckBuilder({
 
           </Pager>
 
-      <div className={`deck-dock ${dockOpen ? 'open' : ''}`} onClick={toggleDock} role="button" aria-label="Toggle deck dock">
-        <div className="deck-dock-handle" />
-        <div className="deck-dock-stats">
-          <span>Deck {builderState.deck?.length ?? 0}</span>
-          <span>Hand {builderState.hand?.length ?? 0}</span>
-          <span>Discard {builderState.discard?.length ?? 0}</span>
+      <div className={`deck-dock ${dockOpen ? 'open' : ''}`} role="group" aria-label="Deck dock">
+        <div className="deck-dock-top">
+          <div className="deck-dock-handle" onClick={toggleDock} />
+          <div className="deck-dock-stats">
+            <span>Deck {builderState.deck?.length ?? 0}</span>
+            <span>Hand {builderState.hand?.length ?? 0}</span>
+            <span>Discard {builderState.discard?.length ?? 0}</span>
+          </div>
+          <div className="deck-dock-actions">
+            <button onClick={toggleLockDeck}>{builderState.isLocked ? 'Unlock' : 'Build/Lock'}</button>
+            <button onClick={shuffleDeck}>Shuffle</button>
+            <button onClick={draw}>Draw 1</button>
+          </div>
         </div>
         {dockOpen && (
-          <div className="deck-dock-body">
-            <div className="deck-dock-section">
-              <div className="deck-dock-title">Deck</div>
-              <div className="deck-dock-chips">
-                {(builderState.deck ?? []).map((id, idx) => (
-                  <span key={`${id}-${idx}`} className="deck-chip">{getCard(id)?.name ?? id}</span>
-                ))}
-                {(builderState.deck ?? []).length === 0 && <div className="muted">Empty</div>}
-              </div>
+          <div className="deck-dock-sheet">
+            <div className="dock-tabs">
+              {['deck','hand','discard'].map((tab) => (
+                <button
+                  key={tab}
+                  className={`dock-tab ${dockView === tab ? 'active' : ''}`}
+                  onClick={() => setDockView(tab as typeof dockView)}
+                >
+                  {tab === 'deck' ? 'Deck' : tab === 'hand' ? 'Hand' : 'Discard'}
+                </button>
+              ))}
             </div>
-            <div className="deck-dock-section">
-              <div className="deck-dock-title">Hand</div>
-              <div className="deck-dock-chips">
-                {(builderState.hand ?? []).map((h, idx) => (
-                  <span key={`${h.id}-${idx}`} className="deck-chip">{getCard(h.id)?.name ?? h.id}</span>
-                ))}
-                {(builderState.hand ?? []).length === 0 && <div className="muted">Empty</div>}
-              </div>
-            </div>
-            <div className="deck-dock-section">
-              <div className="deck-dock-title">Discard</div>
-              <div className="deck-dock-chips">
-                {(builderState.discard ?? []).map((d, idx) => (
-                  <span key={`${d.id}-${idx}`} className="deck-chip">{getCard(d.id)?.name ?? d.id}</span>
-                ))}
-                {(builderState.discard ?? []).length === 0 && <div className="muted">Empty</div>}
-              </div>
+            <div className="dock-list">
+              {dockView === 'deck' && (
+                <div className="dock-chips">
+                  {dockDeckGroups.map(([id, count]) => (
+                    <div key={id} className="deck-chip row">
+                      <span>{getCard(id)?.name ?? id}</span>
+                      <span className="pill">x{count}</span>
+                    </div>
+                  ))}
+                  {dockDeckGroups.length === 0 && <div className="muted">Deck is empty</div>}
+                </div>
+              )}
+              {dockView === 'hand' && (
+                <div className="dock-chips">
+                  {dockHandGroups.map(([id, count]) => (
+                    <div key={id} className="deck-chip row">
+                      <span>{getCard(id)?.name ?? id}</span>
+                      <span className="pill">x{count}</span>
+                      <div className="chip-actions">
+                        <button onClick={() => playSingleFromHand(id)}>Play</button>
+                        <button onClick={() => discardGroupFromHand(id, false, 'discarded')}>Discard</button>
+                      </div>
+                    </div>
+                  ))}
+                  {dockHandGroups.length === 0 && <div className="muted">Hand is empty</div>}
+                </div>
+              )}
+              {dockView === 'discard' && (
+                <div className="dock-chips">
+                  {dockDiscardGroups.map(([id, count]) => (
+                    <div key={id} className="deck-chip row">
+                      <span>{getCard(id)?.name ?? id}</span>
+                      <span className="pill">x{count}</span>
+                      <div className="chip-actions">
+                        <button onClick={() => returnDiscardGroupToDeck(id, true)}>To Deck</button>
+                        <button onClick={() => returnDiscardGroupToHand(id, true)} disabled={(builderState.hand ?? []).length >= (builderState.handLimit ?? 5)}>To Hand</button>
+                      </div>
+                    </div>
+                  ))}
+                  {dockDiscardGroups.length === 0 && <div className="muted">Discard is empty</div>}
+                </div>
+              )}
             </div>
           </div>
         )}
