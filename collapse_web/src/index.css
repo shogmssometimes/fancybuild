@@ -266,6 +266,16 @@ main {
   text-overflow: clip;
   word-break: break-word;
 }
+.card.base-card .card-body,
+.card.mod-card .card-body {
+  align-items: center;
+  text-align: center;
+}
+.card.base-card .card-title,
+.card.mod-card .card-title {
+  align-items: center;
+  text-align: center;
+}
 .card-controls {
   display: flex;
   gap: 6px;
