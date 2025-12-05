@@ -709,27 +709,19 @@ code {
 }
 /* Base cards: show two per swipe with a shorter frame */
 .card-grid.carousel.base-card-grid .card {
-  min-width: 35%;
-  max-width: 35%;
+  min-width: clamp(280px, 85vw, 420px);
+  max-width: clamp(280px, 85vw, 420px);
   min-height: 144px;
 }
 /* Modifier cards: slightly narrower to fit more copy */
 .card-grid.carousel.mod-card-grid .card {
-  min-width: 60%;
-  max-width: 60%;
+  min-width: clamp(260px, 78vw, 380px);
+  max-width: clamp(260px, 78vw, 380px);
 }
 @media (max-width: 768px) {
   .card-grid.carousel .card {
     min-width: 94%;
     max-width: 94%;
-  }
-  .card-grid.carousel.base-card-grid .card {
-    min-width: 45%;
-    max-width: 45%;
-  }
-  .card-grid.carousel.mod-card-grid .card {
-    min-width: 70%;
-    max-width: 70%;
   }
 }
 
