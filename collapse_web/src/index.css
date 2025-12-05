@@ -699,9 +699,9 @@ code {
   display: flex;
   flex-wrap: nowrap;
   overflow-x: auto;
-  gap: 8px;
-  padding: 0;
-  margin: 0;
+  gap: 16px;
+  padding: 4px 8px 10px;
+  margin: 0 -12px;
   scroll-snap-type: x mandatory;
 }
 .card-grid.carousel .card {
@@ -711,15 +711,21 @@ code {
   padding: 14px;
   scroll-snap-align: start;
 }
-.card-grid.carousel.base-card-grid .card,
+/* Base cards: show two per swipe with a shorter frame */
+.card-grid.carousel.base-card-grid .card {
+  min-width: clamp(120px, 36vw, 192px);
+  max-width: clamp(120px, 36vw, 192px);
+  min-height: 144px;
+}
+/* Modifier cards: slightly narrower to fit more copy */
 .card-grid.carousel.mod-card-grid .card {
-  min-width: 540px;
-  max-width: 540px;
+  min-width: clamp(260px, 78vw, 380px);
+  max-width: clamp(260px, 78vw, 380px);
 }
 @media (max-width: 768px) {
   .card-grid.carousel .card {
-    min-width: 92%;
-    max-width: 92%;
+    min-width: 94%;
+    max-width: 94%;
   }
 }
 
