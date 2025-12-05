@@ -779,4 +779,40 @@ code {
   padding: 4px 8px;
   border-radius: 8px;
 }
+
+/* cHUD dock */
+.chud-dock {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: 8px;
+  background: linear-gradient(180deg, rgba(8,8,12,0.9), rgba(8,8,12,0.6));
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.chud-dock-toggle {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(86,141,255,0.35);
+  background: linear-gradient(90deg, rgba(86,141,255,0.18), rgba(86,255,201,0.12));
+  color: #eaf2ff;
+  font-weight: 800;
+  padding: 10px;
+}
+.chud-dock-frame {
+  margin-top: 8px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  max-height: 70vh;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+}
+.chud-dock-frame iframe {
+  width: 100%;
+  height: 360px;
+  border: none;
+}
+@media (max-width: 768px) {
+  .chud-dock-frame iframe { height: 260px; }
+}
 }

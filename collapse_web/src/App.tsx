@@ -71,6 +71,27 @@ const CompanionShell: React.FC<{ onBack: () => void; children: React.ReactNode }
   </div>
 );
 
+const ChudDock: React.FC<{ basePath: string }> = ({ basePath }) => {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div className={`chud-dock ${open ? "open" : ""}`}>
+      <button className="chud-dock-toggle" onClick={() => setOpen((v) => !v)}>
+        {open ? "Hide cHUD" : "Show cHUD"}
+      </button>
+      {open && (
+        <div className="chud-dock-frame">
+          <iframe
+            title="cHUD"
+            src={`${basePath}chud/`}
+            allow="fullscreen"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-pointer-lock"
+          />
+        </div>
+      )}
+    </div>
+  );
+};
+
 const HubLanding: React.FC<{ onNavigate: (route: Route, presetRole?: UserRole) => void }> = ({ onNavigate }) => {
   const cardStyles: React.CSSProperties = {
     border: "1px solid var(--border)",
@@ -171,6 +192,8 @@ export default function App() {
   const [route, setRoute] = useState<Route>(() => deriveRoute());
   const [role, setRole] = useState<UserRole | null>(() => deriveRole());
 
+  const chudDock = route !== "chud" ? <ChudDock basePath={buildPath("")} /> : null;
+
   const subApps = useMemo(
     () => ({
       chud: {
@@ -227,6 +250,7 @@ export default function App() {
     }
     return (
       <CompanionShell onBack={() => setRoute("hub")}>
+        {chudDock}
         <DeckBuilder />
       </CompanionShell>
     );
@@ -245,21 +269,27 @@ export default function App() {
 
   if (route === "csmatrix") {
     return (
-      <SubAppFrame
-        title={subApps.csmatrix.title}
-        src={subApps.csmatrix.src}
-        note={subApps.csmatrix.note}
-        onBack={() => setRoute("hub")}
-      />
+      <>
+        {chudDock}
+        <SubAppFrame
+          title={subApps.csmatrix.title}
+          src={subApps.csmatrix.src}
+          note={subApps.csmatrix.note}
+          onBack={() => setRoute("hub")}
+        />
+      </>
     );
   }
 
   return (
-    <HubLanding
-      onNavigate={(next, presetRole) => {
-        if (presetRole) setRole(presetRole);
-        setRoute(next);
-      }}
-    />
+    <>
+      {chudDock}
+      <HubLanding
+        onNavigate={(next, presetRole) => {
+          if (presetRole) setRole(presetRole);
+          setRoute(next);
+        }}
+      />
+    </>
   );
 }
