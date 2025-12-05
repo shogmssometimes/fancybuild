@@ -671,10 +671,20 @@ code {
   padding: 14px;
   scroll-snap-align: start;
 }
+/* Base cards: show two per swipe with a shorter frame */
+.card-grid.carousel.base-card-grid .card {
+  min-width: 50%;
+  max-width: 50%;
+  min-height: 144px;
+}
 @media (max-width: 768px) {
   .card-grid.carousel .card {
     min-width: 94%;
     max-width: 94%;
+  }
+  .card-grid.carousel.base-card-grid .card {
+    min-width: 60%;
+    max-width: 60%;
   }
 }
 
