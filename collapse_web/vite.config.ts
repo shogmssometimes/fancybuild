@@ -3,8 +3,8 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
-  // Serve the combined build under the GitHub Pages repo path.
-  base: "/fullbuild/",
+  // Serve under this repo's Pages path.
+  base: "/fancybuild/",
   build: {
     outDir: "docs",
     emptyOutDir: true,
