@@ -259,6 +259,13 @@ main {
   overflow: hidden;
 }
 .card-title .card-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight:700; font-size: var(--type-section); }
+.card.base-card .card-title .card-name {
+  display: block;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+}
 .card-controls {
   display: flex;
   gap: 6px;
