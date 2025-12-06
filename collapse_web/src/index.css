@@ -86,7 +86,7 @@ button:hover {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0.9rem 1rem;
+  padding: 0.5rem 0.6rem;
   background: linear-gradient(180deg, rgba(12,12,12,0.96), rgba(12,12,12,0.9));
   border-bottom: 1px solid var(--separator);
   min-height: var(--topbar-height);
@@ -176,11 +176,18 @@ main {
 
 .page {
   flex: 0 0 100%;
-  width: 100%;
-  padding: 0.1rem;
+  width: 100vw;
+  padding: 0;
   box-sizing: border-box;
-  max-width: 100%;
+  max-width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
   overflow-x: hidden;
+}
+.page-full-bleed {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
 }
 
 /* Make pages use viewport height and scroll internally on small screens so
