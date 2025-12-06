@@ -181,6 +181,11 @@ main {
   max-width: 100%;
   overflow-x: hidden;
 }
+.page-full-bleed {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+}
 
 /* Make pages use viewport height and scroll internally on small screens so
    content doesn't force the page wider than the viewport. Adjust the
