@@ -55,7 +55,7 @@ const SubAppFrame: React.FC<{ title: string; src: string; onBack: () => void; no
 };
 
 const CompanionShell: React.FC<{ onBack: () => void; children: React.ReactNode }> = ({ onBack, children }) => (
-  <div style={{ minHeight: "100vh", background: "var(--bg-dark)" }}>
+  <div className="player-shell" style={{ minHeight: "100vh", background: "var(--bg-dark)" }}>
     <header className="topbar">
       <button className="ghost-btn" onClick={onBack} aria-label="Back to hub">
         ← Back to hub
