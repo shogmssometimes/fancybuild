@@ -305,7 +305,8 @@ export default function App() {
 
   if (route === "player") {
     return (
-      <PlayerShell onBack={() => setRoute("hub")}>        {chudDock}
+      <PlayerShell onBack={() => setRoute("hub")}>
+        {chudDock}
         <DeckBuilder />
       </PlayerShell>
     );
@@ -313,15 +314,17 @@ export default function App() {
 
   if (route === "player-ops") {
     return (
-      <PlayerShell onBack={() => setRoute("hub")}>        {chudDock}
-        <DeckBuilder forcePageIndex={1} storageKey="collapse.deck-builder.v2" />
+      <PlayerShell onBack={() => setRoute("hub")}>
+        {chudDock}
+        <DeckBuilder forcePageIndex={1} hidePager storageKey="collapse.deck-builder.v2" />
       </PlayerShell>
     );
   }
 
   if (route === "gm") {
     return (
-      <GMShell onBack={() => setRoute("hub")}>        <DeckBuilder
+      <GMShell onBack={() => setRoute("hub")}>
+        <DeckBuilder
           storageKey="collapse.deck-builder.gm.v1"
           exportPrefix="collapse-gm-deck"
           baseCardsOverride={gmBaseCards}
@@ -340,8 +343,8 @@ export default function App() {
 
   if (route === "gm-ops") {
     return (
-      <GMShell onBack={() => setRoute("hub")}>        <DeckBuilder
-          forcePageIndex={1}
+      <GMShell onBack={() => setRoute("hub")}>
+        <DeckBuilder
           storageKey="collapse.deck-builder.gm.v1"
           exportPrefix="collapse-gm-deck"
           baseCardsOverride={gmBaseCards}
@@ -353,6 +356,8 @@ export default function App() {
           showCardDetails={false}
           simpleCounters={true}
           modCapacityAsCount={true}
+          forcePageIndex={1}
+          hidePager
         />
       </GMShell>
     );
