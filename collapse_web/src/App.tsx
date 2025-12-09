@@ -388,7 +388,7 @@ export default function App() {
         mode={mode}
         onModeChange={(next) => {
           setMode(next);
-          setRoute(next === "gm" ? "gm" : "player");
+          setRoute("hub");
         }}
         onNavigate={(next) => {
           setRoute(next);
