@@ -1,5 +1,4 @@
-import React, {useEffect, useMemo, useState, useCallback, useRef} from 'react'
-import Pager from '../components/Pager'
+import React, {useEffect, useMemo, useState, useCallback} from 'react'
 import ImportExportJSON from '../components/ImportExportJSON'
 import { startPlaySelection, toggleAttach, finalizeSelection, cancelSelection, ActivePlay } from '../utils/playFlow'
 import { getModCapacityUsed, canAddModCardFrom } from '../utils/modCapacity'
@@ -9,7 +8,6 @@ import { Card } from '../domain/decks/DeckEngine'
 
 const DEFAULT_BASE_TARGET = 26
 const DEFAULT_MIN_NULLS = 5
-const MAX_PAGE_INDEX = 1
 const DEFAULT_STORAGE_KEY = 'collapse.deck-builder.v2'
 const DEFAULT_MODIFIER_CAPACITY = 10
 
@@ -104,8 +102,8 @@ type DeckBuilderProps = {
   modCapacityAsCount?: boolean
   baseInitialCount?: number
   modInitialCount?: number
-  forcePageIndex?: number
-  hidePager?: boolean
+  showBuilderSections?: boolean
+  autoOpenDock?: boolean
 }
 
 export default function DeckBuilder({
@@ -122,8 +120,8 @@ export default function DeckBuilder({
   modCapacityAsCount = false,
   baseInitialCount,
   modInitialCount,
-  forcePageIndex,
-  hidePager = true,
+  showBuilderSections = true,
+  autoOpenDock = false,
 }: DeckBuilderProps){
   const baseCards = baseCardsOverride ?? (Handbook.baseCards ?? [])
   const modCards = modCardsOverride ?? (Handbook.modCards ?? [])
@@ -159,13 +157,9 @@ export default function DeckBuilder({
   const [modSearch, setModSearch] = useState('')
   const [deckSeed, setDeckSeed] = useState(0)
   const [activePlay, setActivePlay] = useState<ActivePlay>(null)
-  const [pageIndex, setPageIndex] = useState(forcePageIndex ?? 0)
   const [compactView, setCompactView] = useState(true)
-  const [dragOffset, setDragOffset] = useState(0)
-  const [dockOpen, setDockOpen] = useState(false)
+  const [dockOpen, setDockOpen] = useState(autoOpenDock)
   const [dockView, setDockView] = useState<'deck' | 'hand' | 'discard'>('deck')
-  const dragStartRef = useRef<number | null>(null)
-  const pointerDownRef = useRef(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -210,36 +204,6 @@ export default function DeckBuilder({
   const deckIsValid = baseValid && nullValid && modValid
 
   // Mouse move/up handlers attached to window for desktop drag support
-  function onWindowMouseMove(e: MouseEvent) {
-    if (!pointerDownRef.current || dragStartRef.current === null) return
-    const delta = e.clientX - (dragStartRef.current ?? 0)
-    setDragOffset(delta)
-  }
-
-  function onWindowMouseUp(e: MouseEvent) {
-    if (!pointerDownRef.current) return
-    const delta = dragOffset
-    pointerDownRef.current = false
-    dragStartRef.current = null
-    setDragOffset(0)
-    window.removeEventListener('mousemove', onWindowMouseMove)
-    window.removeEventListener('mouseup', onWindowMouseUp)
-    if (Math.abs(delta) > 60) {
-      if (delta < 0) setPageIndex((p) => Math.min(MAX_PAGE_INDEX, p + 1))
-      else setPageIndex((p) => Math.max(0, p - 1))
-    }
-  }
-
-  // keyboard left/right navigation for pager
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'ArrowRight') setPageIndex((p) => Math.min(MAX_PAGE_INDEX, p + 1))
-      if (e.key === 'ArrowLeft') setPageIndex((p) => Math.max(0, p - 1))
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
-
   const filteredModCards = useMemo(() => {
     if (simpleCounters) return modCards
     if (!modSearch.trim()) return modCards
@@ -724,99 +688,101 @@ export default function DeckBuilder({
   return (
     <main className="app-shell">
 
-      <div className="page">
-        <div className="page-header">
+      {showBuilderSections && (
+        <div className="page">
+          <div className="page-header">
+              <div>
+                <h1>Engram Deck Builder</h1>
+                <p className="muted">Assemble decks with your chosen cards. Decks require {baseTarget} base cards, at least {minNulls} Nulls, and staying within modifier capacity.</p>
+                <div style={{marginTop:8, display:'flex', gap:8, alignItems:'center'}}>
+                    <ImportExportJSON filenamePrefix={exportPrefix} />
+                    <button onClick={()=>setCompactView((c)=>!c)} aria-pressed={compactView} aria-label="Toggle compact view">{compactView ? 'Compact View' : 'Default View'}</button>
+                  </div>
+              </div>
+            </div>
+          <section className={`card-grid base-card-grid ${compactView ? 'compact' : ''}`}>
             <div>
-              <h1>Engram Deck Builder</h1>
-              <p className="muted">Assemble decks with your chosen cards. Decks require {baseTarget} base cards, at least {minNulls} Nulls, and staying within modifier capacity.</p>
-              <div style={{marginTop:8, display:'flex', gap:8, alignItems:'center'}}>
-                  <ImportExportJSON filenamePrefix={exportPrefix} />
-                  <button onClick={()=>setCompactView((c)=>!c)} aria-pressed={compactView} aria-label="Toggle compact view">{compactView ? 'Compact View' : 'Default View'}</button>
-                </div>
+              <div className="muted text-body">Base Cards</div>
+              <div className="stat-large">
+                {simpleCounters ? baseTotal : `${baseTotal} / ${baseTarget}`}
+              </div>
+              {!baseValid && !simpleCounters && <div className="status-warning text-body">Deck must contain exactly {baseTarget} base cards.</div>}
+              <div className="counter-inline" role="group" aria-label="Adjust base cards" style={{marginTop:8}}>
+                <button
+                  className="counter-btn"
+                  onClick={() => adjustPrimaryBaseCount(-1)}
+                  disabled={builderState.isLocked}
+                >
+                  -
+                </button>
+                <div className="counter-value counter-pill">{primaryBaseId ? (builderState.baseCounts[primaryBaseId] ?? 0) : baseTotal}</div>
+                <button
+                  className="counter-btn"
+                  onClick={() => adjustPrimaryBaseCount(1)}
+                  disabled={builderState.isLocked || (!simpleCounters && baseTotal >= baseTarget)}
+                >
+                  +
+                </button>
+              </div>
             </div>
-          </div>
-        <section className={`card-grid base-card-grid ${compactView ? 'compact' : ''}`}>
-          <div>
-            <div className="muted text-body">Base Cards</div>
-            <div className="stat-large">
-              {simpleCounters ? baseTotal : `${baseTotal} / ${baseTarget}`}
-            </div>
-            {!baseValid && !simpleCounters && <div className="status-warning text-body">Deck must contain exactly {baseTarget} base cards.</div>}
-            <div className="counter-inline" role="group" aria-label="Adjust base cards" style={{marginTop:8}}>
-              <button
-                className="counter-btn"
-                onClick={() => adjustPrimaryBaseCount(-1)}
-                disabled={builderState.isLocked}
-              >
-                -
-              </button>
-              <div className="counter-value counter-pill">{primaryBaseId ? (builderState.baseCounts[primaryBaseId] ?? 0) : baseTotal}</div>
-              <button
-                className="counter-btn"
-                onClick={() => adjustPrimaryBaseCount(1)}
-                disabled={builderState.isLocked || (!simpleCounters && baseTotal >= baseTarget)}
-              >
-                +
-              </button>
-            </div>
-          </div>
 
-          <div>
-            <div className="muted text-body">Null Cards</div>
-            <div className="stat-large">{builderState.nullCount}</div>
-            <div className="counter-inline" role="group" aria-label="Adjust null cards" style={{marginTop:8}}>
-              <button
-                className="counter-btn"
-                onClick={() => adjustNullCount(-1)}
-                disabled={builderState.nullCount <= minNulls || builderState.isLocked}
-              >
-                -
-              </button>
-              <div className="counter-value counter-pill">{builderState.nullCount}</div>
-              <button
-                className="counter-btn"
-                onClick={() => adjustNullCount(1)}
-                disabled={builderState.isLocked}
-              >
-                +
-              </button>
+            <div>
+              <div className="muted text-body">Null Cards</div>
+              <div className="stat-large">{builderState.nullCount}</div>
+              <div className="counter-inline" role="group" aria-label="Adjust null cards" style={{marginTop:8}}>
+                <button
+                  className="counter-btn"
+                  onClick={() => adjustNullCount(-1)}
+                  disabled={builderState.nullCount <= minNulls || builderState.isLocked}
+                >
+                  -
+                </button>
+                <div className="counter-value counter-pill">{builderState.nullCount}</div>
+                <button
+                  className="counter-btn"
+                  onClick={() => adjustNullCount(1)}
+                  disabled={builderState.isLocked}
+                >
+                  +
+                </button>
+              </div>
+              {!nullValid && <div className="status-warning text-body">Minimum of {minNulls} Nulls required.</div>}
             </div>
-            {!nullValid && <div className="status-warning text-body">Minimum of {minNulls} Nulls required.</div>}
-          </div>
-          <div>
-            <div className="muted text-body">Modifier Cards</div>
-            <div className="stat-large">
-              {simpleCounters && modCapacityAsCount ? modCapacityUsed : `${modCapacityUsed} / ${builderState.modifierCapacity}`}
+            <div>
+              <div className="muted text-body">Modifier Cards</div>
+              <div className="stat-large">
+                {simpleCounters && modCapacityAsCount ? modCapacityUsed : `${modCapacityUsed} / ${builderState.modifierCapacity}`}
+              </div>
+              <div className="counter-inline" role="group" aria-label="Adjust modifier cards" style={{marginTop:8}}>
+                <button
+                  className="counter-btn"
+                  onClick={() => adjustPrimaryModCount(-1)}
+                  disabled={builderState.isLocked}
+                >
+                  -
+                </button>
+                <div className="counter-value counter-pill">{primaryModId ? (builderState.modCounts[primaryModId] ?? 0) : modCapacityUsed}</div>
+                <button
+                  className="counter-btn"
+                  onClick={() => adjustPrimaryModCount(1)}
+                  disabled={builderState.isLocked || (!simpleCounters && !canAddModCard(primaryModId ?? ''))}
+                >
+                  +
+                </button>
+              </div>
+              <div className="muted text-body" style={{marginTop:6}}>
+                {simpleCounters && modCapacityAsCount ? 'Mod Cards' : 'Mod Cards Used'}
+              </div>
+              {!modValid && <div className="status-error text-body">Reduce modifier cards or raise capacity.</div>}
             </div>
-            <div className="counter-inline" role="group" aria-label="Adjust modifier cards" style={{marginTop:8}}>
-              <button
-                className="counter-btn"
-                onClick={() => adjustPrimaryModCount(-1)}
-                disabled={builderState.isLocked}
-              >
-                -
-              </button>
-              <div className="counter-value counter-pill">{primaryModId ? (builderState.modCounts[primaryModId] ?? 0) : modCapacityUsed}</div>
-              <button
-                className="counter-btn"
-                onClick={() => adjustPrimaryModCount(1)}
-                disabled={builderState.isLocked || (!simpleCounters && !canAddModCard(primaryModId ?? ''))}
-              >
-                +
-              </button>
+            <div>
+              <div className="muted text-body">Deck Status</div>
+              <div className={`stat-large ${deckIsValid ? 'status-success' : 'status-error'}`}>{deckIsValid ? 'Ready' : 'Needs Attention'}</div>
+              <button onClick={resetBuilder} style={{marginTop:8}}>Reset Builder</button>
             </div>
-            <div className="muted text-body" style={{marginTop:6}}>
-              {simpleCounters && modCapacityAsCount ? 'Mod Cards' : 'Mod Cards Used'}
-            </div>
-            {!modValid && <div className="status-error text-body">Reduce modifier cards or raise capacity.</div>}
-          </div>
-          <div>
-            <div className="muted text-body">Deck Status</div>
-            <div className={`stat-large ${deckIsValid ? 'status-success' : 'status-error'}`}>{deckIsValid ? 'Ready' : 'Needs Attention'}</div>
-            <button onClick={resetBuilder} style={{marginTop:8}}>Reset Builder</button>
-          </div>
-        </section>
-      </div>
+          </section>
+        </div>
+      )}
 
       <div className={`deck-dock ${dockOpen ? 'open' : ''}`} role="group" aria-label="Deck dock">
         <div className="deck-dock-top">
@@ -892,17 +858,6 @@ export default function DeckBuilder({
           </div>
         )}
       </div>
-
-      {!hidePager && (
-        <div className="pager-nav" style={{display:'flex',justifyContent:'center',marginTop:12,gap:8}}>
-            {[{i:0,label:'Builder'},{i:1,label:'Deck Ops'}].map(({i,label}) => (
-              <div key={i} className={`pager-item`} aria-current={pageIndex === i} onClick={()=>setPageIndex(i)} style={{cursor:'pointer'}} role="button" aria-label={`Navigate to ${label}`}>
-                <div className={`pager-dot ${pageIndex === i ? 'active' : ''}`} />
-                <div className="pager-label">{label}</div>
-              </div>
-            ))}
-          </div>
-      )}
     </main>
   )
 }

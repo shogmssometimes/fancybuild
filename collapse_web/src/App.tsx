@@ -316,7 +316,7 @@ export default function App() {
     return (
       <PlayerShell onBack={() => setRoute("hub")}>
         {chudDock}
-        <DeckBuilder forcePageIndex={1} hidePager storageKey="collapse.deck-builder.v2" />
+        <DeckBuilder storageKey="collapse.deck-builder.v2" showBuilderSections={false} autoOpenDock />
       </PlayerShell>
     );
   }
@@ -356,8 +356,8 @@ export default function App() {
           showCardDetails={false}
           simpleCounters={true}
           modCapacityAsCount={true}
-          forcePageIndex={1}
-          hidePager
+          showBuilderSections={false}
+          autoOpenDock
         />
       </GMShell>
     );
