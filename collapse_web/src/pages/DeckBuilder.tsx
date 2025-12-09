@@ -104,6 +104,8 @@ type DeckBuilderProps = {
   modCapacityAsCount?: boolean
   baseInitialCount?: number
   modInitialCount?: number
+  forcePageIndex?: number
+  hidePager?: boolean
 }
 
 export default function DeckBuilder({
@@ -120,6 +122,8 @@ export default function DeckBuilder({
   modCapacityAsCount = false,
   baseInitialCount,
   modInitialCount,
+  forcePageIndex,
+  hidePager = false,
 }: DeckBuilderProps){
   const baseCards = baseCardsOverride ?? (Handbook.baseCards ?? [])
   const modCards = modCardsOverride ?? (Handbook.modCards ?? [])
@@ -155,7 +159,7 @@ export default function DeckBuilder({
   const [modSearch, setModSearch] = useState('')
   const [deckSeed, setDeckSeed] = useState(0)
   const [activePlay, setActivePlay] = useState<ActivePlay>(null)
-  const [pageIndex, setPageIndex] = useState(0)
+  const [pageIndex, setPageIndex] = useState(forcePageIndex ?? 0)
   const [compactView, setCompactView] = useState(true)
   const [dragOffset, setDragOffset] = useState(0)
   const [dockOpen, setDockOpen] = useState(false)
