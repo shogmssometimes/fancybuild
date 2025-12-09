@@ -724,296 +724,99 @@ export default function DeckBuilder({
   return (
     <main className="app-shell">
 
-      <Pager pageIndex={pageIndex} onPageIndexChange={setPageIndex}>
-          {/* Page 1: main builder UI (everything except Discard + Deck Operations) */}
-          <div className="page">
-            <div className="page-header">
-                <div>
-                  <h1>Engram Deck Builder</h1>
-                  <p className="muted">Assemble decks with your chosen cards. Decks require {baseTarget} base cards, at least {minNulls} Nulls, and staying within modifier capacity.</p>
-                  {/* Move export/import controls under the flavor text so they don't get squashed */}
-                  <div style={{marginTop:8, display:'flex', gap:8, alignItems:'center'}}>
-                      <ImportExportJSON filenamePrefix={exportPrefix} />
-                      <button onClick={()=>setCompactView((c)=>!c)} aria-pressed={compactView} aria-label="Toggle compact view">{compactView ? 'Compact View' : 'Default View'}</button>
-                    </div>
+      <div className="page">
+        <div className="page-header">
+            <div>
+              <h1>Engram Deck Builder</h1>
+              <p className="muted">Assemble decks with your chosen cards. Decks require {baseTarget} base cards, at least {minNulls} Nulls, and staying within modifier capacity.</p>
+              <div style={{marginTop:8, display:'flex', gap:8, alignItems:'center'}}>
+                  <ImportExportJSON filenamePrefix={exportPrefix} />
+                  <button onClick={()=>setCompactView((c)=>!c)} aria-pressed={compactView} aria-label="Toggle compact view">{compactView ? 'Compact View' : 'Default View'}</button>
                 </div>
-              </div>
-            <section className={`card-grid base-card-grid ${compactView ? 'compact' : ''}`}>
-              <div>
-                <div className="muted text-body">Base Cards</div>
-                <div className="stat-large">
-                  {simpleCounters ? baseTotal : `${baseTotal} / ${baseTarget}`}
-                </div>
-                {!baseValid && !simpleCounters && <div className="status-warning text-body">Deck must contain exactly {baseTarget} base cards.</div>}
-                <div className="counter-inline" role="group" aria-label="Adjust base cards" style={{marginTop:8}}>
-                  <button
-                    className="counter-btn"
-                    onClick={() => adjustPrimaryBaseCount(-1)}
-                    disabled={builderState.isLocked}
-                  >
-                    -
-                  </button>
-                  <div className="counter-value counter-pill">{primaryBaseId ? (builderState.baseCounts[primaryBaseId] ?? 0) : baseTotal}</div>
-                  <button
-                    className="counter-btn"
-                    onClick={() => adjustPrimaryBaseCount(1)}
-                    disabled={builderState.isLocked || (!simpleCounters && baseTotal >= baseTarget)}
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <div className="muted text-body">Null Cards</div>
-                <div className="stat-large">{builderState.nullCount}</div>
-                <div className="counter-inline" role="group" aria-label="Adjust null cards" style={{marginTop:8}}>
-                  <button
-                    className="counter-btn"
-                    onClick={() => adjustNullCount(-1)}
-                    disabled={builderState.nullCount <= minNulls || builderState.isLocked}
-                  >
-                    -
-                  </button>
-                  <div className="counter-value counter-pill">{builderState.nullCount}</div>
-                  <button
-                    className="counter-btn"
-                    onClick={() => adjustNullCount(1)}
-                    disabled={builderState.isLocked}
-                  >
-                    +
-                  </button>
-                </div>
-                {!nullValid && <div className="status-warning text-body">Minimum of {minNulls} Nulls required.</div>}
-              </div>
-              <div>
-                <div className="muted text-body">Modifier Cards</div>
-                <div className="stat-large">
-                  {simpleCounters && modCapacityAsCount ? modCapacityUsed : `${modCapacityUsed} / ${builderState.modifierCapacity}`}
-                </div>
-                <div className="counter-inline" role="group" aria-label="Adjust modifier cards" style={{marginTop:8}}>
-                  <button
-                    className="counter-btn"
-                    onClick={() => adjustPrimaryModCount(-1)}
-                    disabled={builderState.isLocked}
-                  >
-                    -
-                  </button>
-                  <div className="counter-value counter-pill">{primaryModId ? (builderState.modCounts[primaryModId] ?? 0) : modCapacityUsed}</div>
-                  <button
-                    className="counter-btn"
-                    onClick={() => adjustPrimaryModCount(1)}
-                    disabled={builderState.isLocked || (!simpleCounters && !canAddModCard(primaryModId ?? ''))}
-                  >
-                    +
-                  </button>
-                </div>
-                <div className="muted text-body" style={{marginTop:6}}>
-                  {simpleCounters && modCapacityAsCount ? 'Mod Cards' : 'Mod Cards Used'}
-                </div>
-                {!modValid && <div className="status-error text-body">Reduce modifier cards or raise capacity.</div>}
-              </div>
-              <div>
-                <div className="muted text-body">Deck Status</div>
-                <div className={`stat-large ${deckIsValid ? 'status-success' : 'status-error'}`}>{deckIsValid ? 'Ready' : 'Needs Attention'}</div>
-                <button onClick={resetBuilder} style={{marginTop:8}}>Reset Builder</button>
-              </div>
-            </section>
-            
-
-            <section className="compact">
-              <h2>Base Cards</h2>
-              <p className="muted" style={{ marginTop: 0 }}>Add base cards until you reach {baseTarget} total base cards.</p>
-              <div className={`card-grid base-card-grid ${compactView ? 'compact' : ''} carousel`}>
-                {baseCards.map((card) => {
-                  const qty = builderState.baseCounts[card.id] ?? 0
-                  const isSelectedBase = activePlay?.baseId === card.id
-                  return (
-                    <div key={card.id} className={`card base-card ${compactView ? 'compact' : ''} ${isSelectedBase ? 'is-selected' : ''}`}>
-                      <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: '100%' }}>
-                        <div className="card-title" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          <div className="card-name">{card.name}</div>
-                          {isSelectedBase && <div className="accent text-footnote">Selected Base</div>}
-                        </div>
-                        <div className="card-controls card-controls-bottom">
-                          <button className="counter-btn" onClick={() => adjustBaseCount(card.id, -1)} disabled={qty === 0 || builderState.isLocked}>-</button>
-                          <div className="counter-value">{qty}</div>
-                          <button className="counter-btn" onClick={() => adjustBaseCount(card.id, 1)} disabled={!simpleCounters && (baseTotal >= baseTarget || builderState.isLocked)}>+</button>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </section>
-
-            <section className="compact" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <h2 style={{ marginBottom: 4 }}>Modifier Cards</h2>
-                  <p className="muted" style={{ marginTop: 0 }}>Each modifier consumes capacity equal to its card cost. Stay within your Engram Modifier Capacity.</p>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ fontWeight: 600 }}>Modifier Capacity</label>
-                  <div className="counter-inline" role="group" aria-label="Adjust modifier capacity">
-                    <button className="counter-btn" onClick={() => adjustModifierCapacity(-1)}>-</button>
-                    <div className="counter-value counter-pill">{builderState.modifierCapacity}</div>
-                    <button className="counter-btn" onClick={() => adjustModifierCapacity(1)}>+</button>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ fontWeight: 600 }}>Search Mods</label>
-                  <input type="text" placeholder="Search name, target, effect" value={modSearch} onChange={(event) => setModSearch(event.target.value)} style={{ minWidth: 0, width: '100%' }} />
-                </div>
-              </div>
-
-              <div className={`card-grid mod-card-grid ${compactView ? 'compact' : ''} carousel`}>
-                {filteredModCards.map((card) => {
-                  const qty = builderState.modCounts[card.id] ?? 0
-                  const cost = card.cost ?? 0
-                  const isAttached = activePlay?.mods?.includes(card.id)
-                  return (
-                    <div key={card.id} className={`card mod-card ${compactView ? 'compact' : ''} ${isAttached ? 'is-selected' : ''}`}>
-                      <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: '100%' }}>
-                        <div className="card-header" style={{ gap: 12, padding: 0 }}>
-                          <div className="card-title" style={{ minWidth: 0, flex: '1 1 auto' }}>
-                            <div className="card-name">{card.name}</div>
-                            <div className="muted text-body">Cost {cost}</div>
-                            {isAttached && <div className="accent text-footnote" style={{ marginTop: 4 }}>Attached</div>}
-                          </div>
-                        </div>
-                        {showCardDetails && card.text && <p className="text-body" style={{ margin: 0 }}>{card.text}</p>}
-                        {renderDetails(card)}
-                        <div className="card-controls card-controls-bottom">
-                          <button className="counter-btn" onClick={() => adjustModCount(card.id, -1)} disabled={qty === 0 || builderState.isLocked}>-</button>
-                          <div className="counter-value">{qty}</div>
-                          <button className="counter-btn" onClick={() => adjustModCount(card.id, 1)} disabled={builderState.isLocked || (!simpleCounters && !canAddModCard(card.id))}>+</button>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </section>
-
+            </div>
+          </div>
+        <section className={`card-grid base-card-grid ${compactView ? 'compact' : ''}`}>
+          <div>
+            <div className="muted text-body">Base Cards</div>
+            <div className="stat-large">
+              {simpleCounters ? baseTotal : `${baseTotal} / ${baseTarget}`}
+            </div>
+            {!baseValid && !simpleCounters && <div className="status-warning text-body">Deck must contain exactly {baseTarget} base cards.</div>}
+            <div className="counter-inline" role="group" aria-label="Adjust base cards" style={{marginTop:8}}>
+              <button
+                className="counter-btn"
+                onClick={() => adjustPrimaryBaseCount(-1)}
+                disabled={builderState.isLocked}
+              >
+                -
+              </button>
+              <div className="counter-value counter-pill">{primaryBaseId ? (builderState.baseCounts[primaryBaseId] ?? 0) : baseTotal}</div>
+              <button
+                className="counter-btn"
+                onClick={() => adjustPrimaryBaseCount(1)}
+                disabled={builderState.isLocked || (!simpleCounters && baseTotal >= baseTarget)}
+              >
+                +
+              </button>
+            </div>
           </div>
 
-          {/* Page 2: Deck Operations + Discard Pile */}
-          <div className="page">
-            <section style={{display:'grid',gridTemplateColumns:'1fr',gap:12}}>
-              <div>
-                <label style={{fontWeight:600}}>Hand Draw</label>
-                <div style={{display:'flex',gap:8,alignItems:'center',marginTop:8}}>
-                  <button onClick={()=>draw()} disabled={!builderState.isLocked || ((builderState.hand ?? []).length >= (builderState.handLimit ?? 5))}>Draw 1</button>
-                </div>
-
-              </div>
-            </section>
-
-            <section className={`card-grid base-card-grid ${compactView ? 'compact' : ''}`}>
-              <div>
-                <h3>Hand</h3>
-                <div style={{display:'flex',gap:8,alignItems:'center',marginTop:8}}>
-                  <div className="muted text-body">Duplicates stacked</div>
-                </div>
-                <div className="hand-stack">
-                  {groupedHandStacks.length > 0 ? groupedHandStacks : <div className="muted">No cards in hand</div>}
-                </div>
-              </div>
-            </section>
-
-            {/* Discard Pile will be added after Deck Operations */}
-
-            <section className={`card-grid base-card-grid ${compactView ? 'compact' : ''}`}>
-              <div>
-                <h2>Deck Operations</h2>
-                <p className="muted" style={{marginTop:0}}>Shuffle, draw, and discard cards from your deck. Draw uses the top-of-deck (LIFO) model.</p>
-                <div className="ops-toolbar">
-                  <button onClick={()=>generateDeck(true)}>Build Deck</button>
-                  <button onClick={()=>shuffleDeck()}>Shuffle</button>
-                  <button onClick={()=>toggleLockDeck()}>{builderState.isLocked ? 'Unlock Deck' : 'Lock Deck'}</button>
-                </div>
-                <div style={{marginTop:12}}>
-                  <div className="text-body">Deck Count: <strong>{(builderState.deck ?? []).length}</strong></div>
-                  <div className="text-body">Discard Count: <strong>{(builderState.discard ?? []).length}</strong></div>
-                    {activePlay && (
-                    <div style={{marginTop:12,border:'1px solid #444',padding:8,borderRadius:8,background:'#0a0a0a'}}>
-                      <div style={{fontWeight:700}}>Active Play</div>
-                      <div className="muted text-section" style={{marginTop:6}}>Base: {cardLookup.get(activePlay.baseId)?.name ?? activePlay.baseId}</div>
-                      <div className="muted text-body" style={{marginTop:6}}>Modifiers: {activePlay.mods.length}</div>
-                      <div style={{display:'flex',gap:8,marginTop:8}}>
-                        <button onClick={()=>finalizePlay()}>Finalize Play</button>
-                        <button onClick={()=>cancelPlay()}>Cancel Play</button>
-                      </div>
-                    </div>
-                  )}
-                  <div style={{marginTop:8}}>
-                    <label style={{fontWeight:600}}>Hand Limit</label>
-                    <div style={{display:'flex',gap:8,alignItems:'center',marginTop:8}}>
-                      <input
-                        type="number"
-                        min={0}
-                        value={builderState.handLimit ?? 5}
-                        onChange={(e)=>{
-                          const next = Number.parseInt(e.target.value, 10)
-                          setBuilderState((prev)=> ({
-                            ...prev,
-                            handLimit: Number.isNaN(next) ? prev.handLimit ?? 5 : clamp(next, 0),
-                          }))
-                        }}
-                        style={{width:80,maxWidth:'100%',textAlign:'center'}}
-                      />
-                      <div className="muted text-body">Active cap for hand cards.</div>
-                    </div>
-                  </div>
-                  <div style={{marginTop:8}}>
-                    <div style={{fontWeight:600}}>Saved Decks</div>
-                    <div style={{display:'flex',flexDirection:'column',gap:6,marginTop:6}}>
-                      {Object.keys(builderState.savedDecks ?? {}).length === 0 && <div className="muted">No saved decks</div>}
-                      {Object.entries(builderState.savedDecks ?? {}).map(([k,v])=> (
-                        <div key={k} style={{display:'flex',gap:8,alignItems:'center'}}>
-                          <div style={{minWidth:160}}>{v.name}</div>
-                          <button onClick={()=>loadSavedDeck(k)}>Load</button>
-                          <button onClick={()=>deleteSavedDeck(k)}>Delete</button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section style={{display:'grid',gridTemplateColumns:'1fr',gap:12}}>
-              <div>
-                <h3>Discard Pile</h3>
-                <div style={{display:'flex',gap:8,alignItems:'center',marginTop:8}}>
-                  <div className="muted text-body">Duplicates stacked</div>
-                </div>
-                <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                  {groupedDiscardElements}
-                  {(groupedDiscardElements?.length ?? 0) === 0 && (builderState.discard ?? []).map((item, idx) => {
-            const card = getCard(item.id)
-                    return (
-                      <div key={idx} className={`card base-card small-card ${compactView ? 'compact' : ''}`}>
-                        <div className="card-header">
-                          <div className="card-title"><div className="card-name" style={{fontWeight:700}}>{card?.name ?? item.id}</div></div>
-                          <div className="card-controls">
-                            <button className="counter-btn" onClick={() => returnDiscardItemToDeck(idx)}>Deck</button>
-                            <button className="counter-btn" onClick={() => returnDiscardItemToHand(idx)} disabled={(builderState.hand ?? []).length >= (builderState.handLimit ?? 5)}>Hand</button>
-                          </div>
-                        </div>
-                        <div className="muted text-body">#{idx+1} • {item.origin === 'played' ? 'Played' : 'Discarded'}</div>
-                        <div style={{marginTop:8}}>{renderDetails(card ?? {id:item.id,name:item.id,type:'',cost:0,text:'' as any})}</div>
-                      </div>
-                    )
-                  })}
-                  {((builderState.discard ?? []).length === 0) && <div className="muted">Discard pile is empty</div>}
-                </div>
-              </div>
-            </section>
-              </div>
-
-          </Pager>
+          <div>
+            <div className="muted text-body">Null Cards</div>
+            <div className="stat-large">{builderState.nullCount}</div>
+            <div className="counter-inline" role="group" aria-label="Adjust null cards" style={{marginTop:8}}>
+              <button
+                className="counter-btn"
+                onClick={() => adjustNullCount(-1)}
+                disabled={builderState.nullCount <= minNulls || builderState.isLocked}
+              >
+                -
+              </button>
+              <div className="counter-value counter-pill">{builderState.nullCount}</div>
+              <button
+                className="counter-btn"
+                onClick={() => adjustNullCount(1)}
+                disabled={builderState.isLocked}
+              >
+                +
+              </button>
+            </div>
+            {!nullValid && <div className="status-warning text-body">Minimum of {minNulls} Nulls required.</div>}
+          </div>
+          <div>
+            <div className="muted text-body">Modifier Cards</div>
+            <div className="stat-large">
+              {simpleCounters && modCapacityAsCount ? modCapacityUsed : `${modCapacityUsed} / ${builderState.modifierCapacity}`}
+            </div>
+            <div className="counter-inline" role="group" aria-label="Adjust modifier cards" style={{marginTop:8}}>
+              <button
+                className="counter-btn"
+                onClick={() => adjustPrimaryModCount(-1)}
+                disabled={builderState.isLocked}
+              >
+                -
+              </button>
+              <div className="counter-value counter-pill">{primaryModId ? (builderState.modCounts[primaryModId] ?? 0) : modCapacityUsed}</div>
+              <button
+                className="counter-btn"
+                onClick={() => adjustPrimaryModCount(1)}
+                disabled={builderState.isLocked || (!simpleCounters && !canAddModCard(primaryModId ?? ''))}
+              >
+                +
+              </button>
+            </div>
+            <div className="muted text-body" style={{marginTop:6}}>
+              {simpleCounters && modCapacityAsCount ? 'Mod Cards' : 'Mod Cards Used'}
+            </div>
+            {!modValid && <div className="status-error text-body">Reduce modifier cards or raise capacity.</div>}
+          </div>
+          <div>
+            <div className="muted text-body">Deck Status</div>
+            <div className={`stat-large ${deckIsValid ? 'status-success' : 'status-error'}`}>{deckIsValid ? 'Ready' : 'Needs Attention'}</div>
+            <button onClick={resetBuilder} style={{marginTop:8}}>Reset Builder</button>
+          </div>
+        </section>
+      </div>
 
       <div className={`deck-dock ${dockOpen ? 'open' : ''}`} role="group" aria-label="Deck dock">
         <div className="deck-dock-top">
