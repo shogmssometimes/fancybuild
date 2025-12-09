@@ -1,29 +1,37 @@
 import React, { useEffect, useMemo, useState } from "react";
-import RoleSelectLanding, { UserRole } from "./components/RoleSelectLanding";
 import DeckBuilder from "./pages/DeckBuilder";
+import { Card } from "./domain/decks/DeckEngine";
 
-type Route = "hub" | "cvttweb" | "chud" | "csmatrix" | "gm";
+type Mode = "player" | "gm";
+type Route = "hub" | "player" | "player-ops" | "gm" | "gm-ops" | "chud" | "csmatrix";
 
+const MODE_KEY = "collapse.mode";
 const buildPath = (path: string) => `${import.meta.env.BASE_URL}${path}`;
 
 const deriveRoute = (): Route => {
   if (typeof window === "undefined") return "hub";
   const hash = window.location.hash.replace(/^#\/?/, "");
-  const [segment] = hash.split(/[/?]/);
-  if (segment === "cvttweb") return "cvttweb";
+  const [segment, sub] = hash.split(/[\/?]/);
+  if (segment === "player") {
+    if (sub === "ops") return "player-ops";
+    return "player";
+  }
+  if (segment === "gm") {
+    if (sub === "ops") return "gm-ops";
+    return "gm";
+  }
   if (segment === "chud") return "chud";
   if (segment === "csmatrix") return "csmatrix";
-  if (segment === "gm") return "gm";
-  if (window.location.pathname.includes("/cvttweb")) return "cvttweb";
   return "hub";
 };
 
-const deriveRole = (): UserRole | null => {
-  if (typeof window === "undefined") return null;
-  const hash = window.location.hash.replace(/^#\/?/, "");
-  const [, roleSegment] = hash.split("/");
-  if (roleSegment === "player" || roleSegment === "gm") return roleSegment;
-  return null;
+const deriveMode = (): Mode => {
+  if (typeof window === "undefined") return "player";
+  const saved = window.localStorage.getItem(MODE_KEY) as Mode | null;
+  const route = deriveRoute();
+  if (route === "gm" || route === "gm-ops") return "gm";
+  if (route === "player" || route === "player-ops" || route === "chud" || route === "csmatrix") return "player";
+  return saved ?? "player";
 };
 
 const SubAppFrame: React.FC<{ title: string; src: string; onBack: () => void; note?: string }> = ({
@@ -31,40 +39,51 @@ const SubAppFrame: React.FC<{ title: string; src: string; onBack: () => void; no
   src,
   onBack,
   note,
-}) => {
-  return (
-    <main style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <header className="topbar">
-        <button className="ghost-btn" onClick={onBack}>← Back to hub</button>
-        <div className="topbar-title">
-          <div className="muted" style={{ fontSize: "0.85rem" }}>Collapse Full Build</div>
-          <strong>{title}</strong>
-        </div>
-      </header>
-      <div className="subapp-frame">
-        <iframe
-          title={title}
-          src={src}
-          style={{ border: "none" }}
-          allow="fullscreen"
-          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-pointer-lock"
-        />
+}) => (
+  <main style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <header className="topbar">
+      <button className="ghost-btn" onClick={onBack}>← Back to hub</button>
+      <div className="topbar-title">
+        <div className="muted" style={{ fontSize: "0.85rem" }}>Collapse Full Build</div>
+        <strong>{title}</strong>
       </div>
-    </main>
-  );
-};
+    </header>
+    <div className="subapp-frame">
+      <iframe
+        title={title}
+        src={src}
+        style={{ border: "none" }}
+        allow="fullscreen"
+        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-pointer-lock"
+      />
+    </div>
+  </main>
+);
 
-const CompanionShell: React.FC<{ onBack: () => void; children: React.ReactNode }> = ({ onBack, children }) => (
+const PlayerShell: React.FC<{ onBack: () => void; children: React.ReactNode }> = ({ onBack, children }) => (
   <div className="player-shell" style={{ minHeight: "100vh", background: "var(--bg-dark)" }}>
     <header className="topbar">
       <button className="ghost-btn" onClick={onBack} aria-label="Back to hub">
         ← Back to hub
       </button>
       <div className="topbar-title">
-        <div className="muted" style={{ fontSize: "0.85rem" }}>
-          Collapse Full Build
-        </div>
+        <div className="muted" style={{ fontSize: "0.85rem" }}>Collapse Full Build</div>
         <strong>Collapse Companion</strong>
+      </div>
+    </header>
+    {children}
+  </div>
+);
+
+const GMShell: React.FC<{ onBack: () => void; children: React.ReactNode }> = ({ onBack, children }) => (
+  <div className="gm-shell" style={{ minHeight: "100vh", background: "var(--bg-dark)" }}>
+    <header className="topbar">
+      <button className="ghost-btn" onClick={onBack} aria-label="Back to hub">
+        ← Back to hub
+      </button>
+      <div className="topbar-title">
+        <div className="muted" style={{ fontSize: "0.85rem" }}>Collapse GM Companion</div>
+        <strong>GM Tools</strong>
       </div>
     </header>
     {children}
@@ -95,7 +114,7 @@ const ChudDock: React.FC<{ basePath: string }> = ({ basePath }) => {
                 title="cHUD"
                 src={`${basePath}chud/`}
                 allow="fullscreen"
-                sandbox="allow-same-origin allow-scripts allow-forms allow-pointer-lock"
+                sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-pointer-lock"
               />
             </div>
           </div>
@@ -105,75 +124,89 @@ const ChudDock: React.FC<{ basePath: string }> = ({ basePath }) => {
   );
 };
 
-const HubLanding: React.FC<{ onNavigate: (route: Route, presetRole?: UserRole) => void }> = ({ onNavigate }) => {
-  const cardStyles: React.CSSProperties = {
-    border: "1px solid var(--border)",
-    borderRadius: 16,
-    padding: "1rem",
-    background: "var(--surface)",
-    minHeight: 180,
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "space-between",
-    gap: "0.75rem",
-  };
-
-  const cards = [
-    {
-      id: "cvttweb" as Route,
-      title: "Companion — Player",
-      description: "Player-facing tools with read-only world events and the deck builder.",
-      cta: "Enter Player Mode",
-      subtitle: "In-app",
-      role: "player" as UserRole,
-    },
-    {
-      id: "gm" as Route,
-      title: "Companion — GM (Standalone)",
-      description: "GM-only deck tools (pure counts). Player app remains unchanged.",
-      cta: "Launch GM Companion",
-      subtitle: "Standalone",
-    },
-    {
-      id: "chud" as Route,
-      title: "cHUD",
-      description: "Compact HUD for derived stats; keep it alongside your session.",
-      cta: "Open cHUD",
-      subtitle: "In-app",
-    },
-    {
-      id: "csmatrix" as Route,
-      title: "CS Matrix",
-      description: "Campaign Support Matrix with draggable nodes, meters, and node drawers.",
-      cta: "Open CS Matrix",
-      subtitle: "In-app",
-    },
-  ];
+const HubLanding: React.FC<{
+  mode: Mode;
+  onModeChange: (mode: Mode) => void;
+  onNavigate: (route: Route) => void;
+}> = ({ mode, onModeChange, onNavigate }) => {
+  const cards = useMemo(() => {
+    const base = [
+      {
+        id: "player" as Route,
+        title: "Companion — Player",
+        description: "Player-facing tools with deck builder and ops.",
+        cta: "Open Player Companion",
+        subtitle: "Player",
+      },
+      {
+        id: "player-ops" as Route,
+        title: "Deck Ops — Player",
+        description: "Standalone deck operations for the player deck.",
+        cta: "Open Player Deck Ops",
+        subtitle: "Player",
+      },
+      {
+        id: "gm" as Route,
+        title: "Companion — GM",
+        description: "GM-only deck tools with pure counts.",
+        cta: "Open GM Companion",
+        subtitle: "GM",
+      },
+      {
+        id: "gm-ops" as Route,
+        title: "Deck Ops — GM",
+        description: "Standalone deck operations for the GM deck.",
+        cta: "Open GM Deck Ops",
+        subtitle: "GM",
+      },
+      {
+        id: "csmatrix" as Route,
+        title: "CS Matrix",
+        description: "Campaign Support Matrix with draggable nodes.",
+        cta: "Open CS Matrix",
+        subtitle: "Player",
+      },
+      {
+        id: "chud" as Route,
+        title: "cHUD",
+        description: "Compact HUD for derived stats.",
+        cta: "Open cHUD",
+        subtitle: "Player",
+      },
+    ];
+    return base.filter((c) => {
+      if (mode === "gm") return c.subtitle === "GM";
+      return c.subtitle === "Player";
+    });
+  }, [mode]);
 
   return (
     <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div
-        style={{
-          width: "min(1100px, 100%)",
-          padding: "1.25rem 1rem",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "baseline",
-            gap: "0.75rem",
-            flexWrap: "wrap",
-          }}
-        >
+      <div style={{ width: "min(1100px, 100%)", padding: "1.25rem 1rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap" }}>
           <div>
             <h1 style={{ margin: "0 0 0.35rem 0" }}>Collapse Full Build</h1>
             <p style={{ margin: 0, color: "var(--muted)" }}>
-              Launch any build directly. Each experience runs inside this PWA and stays offline once loaded.
+              Choose a mode to open the companion and deck ops independently.
             </p>
           </div>
-          <span style={{ color: "var(--muted)", fontSize: "0.95rem" }}>{buildPath("")}</span>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span style={{ color: "var(--muted)", fontSize: "0.9rem" }}>Mode:</span>
+            <button
+              onClick={() => onModeChange("player")}
+              aria-pressed={mode === "player"}
+              style={{ fontWeight: mode === "player" ? 700 : 500 }}
+            >
+              Player
+            </button>
+            <button
+              onClick={() => onModeChange("gm")}
+              aria-pressed={mode === "gm"}
+              style={{ fontWeight: mode === "gm" ? 700 : 500 }}
+            >
+              GM
+            </button>
+          </div>
         </div>
         <div
           style={{
@@ -184,7 +217,20 @@ const HubLanding: React.FC<{ onNavigate: (route: Route, presetRole?: UserRole) =
           }}
         >
           {cards.map((card) => (
-            <div key={card.id} style={cardStyles}>
+            <div
+              key={card.id}
+              style={{
+                border: "1px solid var(--border)",
+                borderRadius: 16,
+                padding: "1rem",
+                background: "var(--surface)",
+                minHeight: 180,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                gap: "0.75rem",
+              }}
+            >
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
                   <h2 style={{ margin: 0 }}>{card.title}</h2>
@@ -192,7 +238,7 @@ const HubLanding: React.FC<{ onNavigate: (route: Route, presetRole?: UserRole) =
                 </div>
                 <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>{card.description}</p>
               </div>
-              <button onClick={() => onNavigate(card.id, card.role)}>{card.cta}</button>
+              <button onClick={() => onNavigate(card.id)}>{card.cta}</button>
             </div>
           ))}
         </div>
@@ -203,31 +249,15 @@ const HubLanding: React.FC<{ onNavigate: (route: Route, presetRole?: UserRole) =
 
 export default function App() {
   const [route, setRoute] = useState<Route>(() => deriveRoute());
-  const [role, setRole] = useState<UserRole | null>(() => deriveRole());
+  const [mode, setMode] = useState<Mode>(() => deriveMode());
 
   const chudDock = route !== "chud" ? <ChudDock basePath={buildPath("")} /> : null;
 
-  const subApps = useMemo(
-    () => ({
-      chud: {
-        title: "cHUD — Compact HUD",
-        src: buildPath("chud/"),
-        note: "Loaded inside the fullbuild shell.",
-      },
-      csmatrix: {
-        title: "CS Matrix",
-        src: buildPath("csmatrix/"),
-        note: "Campaign Support Matrix (in-app iframe).",
-      },
-    }),
-    []
-  );
-
   useEffect(() => {
     const syncRoute = () => {
-      setRoute(deriveRoute());
-      const hashRole = deriveRole();
-      if (hashRole) setRole(hashRole);
+      const nextRoute = deriveRoute();
+      setRoute(nextRoute);
+      setMode(nextRoute === "gm" || nextRoute === "gm-ops" ? "gm" : "player");
     };
     syncRoute();
     window.addEventListener("hashchange", syncRoute);
@@ -240,57 +270,114 @@ export default function App() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const desiredHash = route === "cvttweb" && role ? `#/${route}/${role}` : `#/${route}`;
+    window.localStorage.setItem(MODE_KEY, mode);
+  }, [mode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const desiredHash = (() => {
+      switch (route) {
+        case "player":
+          return "#/player";
+        case "player-ops":
+          return "#/player/ops";
+        case "gm":
+          return "#/gm";
+        case "gm-ops":
+          return "#/gm/ops";
+        case "chud":
+          return "#/chud";
+        case "csmatrix":
+          return "#/csmatrix";
+        default:
+          return "#/hub";
+      }
+    })();
     if (window.location.hash !== desiredHash) {
       window.location.hash = desiredHash;
     }
-  }, [route, role]);
+  }, [route]);
 
-  if (route === "gm") {
+  // GM deck overrides (simple counts)
+  const gmBaseCards = useMemo<Card[]>(() => [{ id: "gm-base-1", name: "Base", type: "Base" }], []);
+  const gmModCards = useMemo<Card[]>(() => [{ id: "gm-mod-1", name: "Mod", type: "Modifier", cost: 1 }], []);
+  const gmNullCard = useMemo<Card>(() => ({ id: "gm-null", name: "Null", type: "Null" }), []);
+
+  if (route === "player") {
     return (
-      <SubAppFrame
-        title="Companion — GM"
-        src={buildPath("gm.html")}
-        onBack={() => setRoute("hub")}
-        note="GM-only view; player app remains unchanged."
-      />
+      <PlayerShell onBack={() => setRoute("hub")}>        {chudDock}
+        <DeckBuilder />
+      </PlayerShell>
     );
   }
 
-  if (route === "cvttweb") {
-    if (!role) {
-      return <RoleSelectLanding onSelect={setRole} />;
-    }
+  if (route === "player-ops") {
     return (
-      <CompanionShell onBack={() => setRoute("hub")}>
-        {chudDock}
-        <DeckBuilder />
-      </CompanionShell>
+      <PlayerShell onBack={() => setRoute("hub")}>        {chudDock}
+        <DeckBuilder forcePageIndex={1} hidePager storageKey="collapse.deck-builder.v2" />
+      </PlayerShell>
+    );
+  }
+
+  if (route === "gm") {
+    return (
+      <GMShell onBack={() => setRoute("hub")}>        <DeckBuilder
+          storageKey="collapse.deck-builder.gm.v1"
+          exportPrefix="collapse-gm-deck"
+          baseCardsOverride={gmBaseCards}
+          modCardsOverride={gmModCards}
+          nullCardOverride={gmNullCard}
+          baseTarget={15}
+          minNulls={5}
+          modifierCapacityDefault={10}
+          showCardDetails={false}
+          simpleCounters={true}
+          modCapacityAsCount={true}
+        />
+      </GMShell>
+    );
+  }
+
+  if (route === "gm-ops") {
+    return (
+      <GMShell onBack={() => setRoute("hub")}>        <DeckBuilder
+          forcePageIndex={1}
+          hidePager
+          storageKey="collapse.deck-builder.gm.v1"
+          exportPrefix="collapse-gm-deck"
+          baseCardsOverride={gmBaseCards}
+          modCardsOverride={gmModCards}
+          nullCardOverride={gmNullCard}
+          baseTarget={15}
+          minNulls={5}
+          modifierCapacityDefault={10}
+          showCardDetails={false}
+          simpleCounters={true}
+          modCapacityAsCount={true}
+        />
+      </GMShell>
     );
   }
 
   if (route === "chud") {
     return (
       <SubAppFrame
-        title={subApps.chud.title}
-        src={subApps.chud.src}
-        note={subApps.chud.note}
+        title="cHUD — Compact HUD"
+        src={buildPath("chud/")}
         onBack={() => setRoute("hub")}
+        note="Loaded inside the fullbuild shell."
       />
     );
   }
 
   if (route === "csmatrix") {
     return (
-      <>
-        {chudDock}
-        <SubAppFrame
-          title={subApps.csmatrix.title}
-          src={subApps.csmatrix.src}
-          note={subApps.csmatrix.note}
-          onBack={() => setRoute("hub")}
-        />
-      </>
+      <SubAppFrame
+        title="CS Matrix"
+        src={buildPath("csmatrix/")}
+        onBack={() => setRoute("hub")}
+        note="Campaign Support Matrix (in-app iframe)."
+      />
     );
   }
 
@@ -298,9 +385,14 @@ export default function App() {
     <>
       {chudDock}
       <HubLanding
-        onNavigate={(next, presetRole) => {
-          if (presetRole) setRole(presetRole);
+        mode={mode}
+        onModeChange={(next) => {
+          setMode(next);
+          setRoute(next === "gm" ? "gm" : "player");
+        }}
+        onNavigate={(next) => {
           setRoute(next);
+          setMode(next === "gm" || next === "gm-ops" ? "gm" : "player");
         }}
       />
     </>
