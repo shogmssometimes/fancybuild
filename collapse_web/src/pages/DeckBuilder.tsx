@@ -123,7 +123,7 @@ export default function DeckBuilder({
   baseInitialCount,
   modInitialCount,
   forcePageIndex,
-  hidePager = false,
+  hidePager = true,
 }: DeckBuilderProps){
   const baseCards = baseCardsOverride ?? (Handbook.baseCards ?? [])
   const modCards = modCardsOverride ?? (Handbook.modCards ?? [])
@@ -893,14 +893,16 @@ export default function DeckBuilder({
         )}
       </div>
 
-      <div className="pager-nav" style={{display:'flex',justifyContent:'center',marginTop:12,gap:8}}>
-          {[{i:0,label:'Builder'},{i:1,label:'Deck Ops'}].map(({i,label}) => (
-            <div key={i} className={`pager-item`} aria-current={pageIndex === i} onClick={()=>setPageIndex(i)} style={{cursor:'pointer'}} role="button" aria-label={`Navigate to ${label}`}>
-              <div className={`pager-dot ${pageIndex === i ? 'active' : ''}`} />
-              <div className="pager-label">{label}</div>
-            </div>
-          ))}
-        </div>
+      {!hidePager && (
+        <div className="pager-nav" style={{display:'flex',justifyContent:'center',marginTop:12,gap:8}}>
+            {[{i:0,label:'Builder'},{i:1,label:'Deck Ops'}].map(({i,label}) => (
+              <div key={i} className={`pager-item`} aria-current={pageIndex === i} onClick={()=>setPageIndex(i)} style={{cursor:'pointer'}} role="button" aria-label={`Navigate to ${label}`}>
+                <div className={`pager-dot ${pageIndex === i ? 'active' : ''}`} />
+                <div className="pager-label">{label}</div>
+              </div>
+            ))}
+          </div>
+      )}
     </main>
   )
 }
