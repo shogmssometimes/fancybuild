@@ -1,5 +1,4 @@
 import React, {useEffect, useMemo, useState, useCallback, useRef} from 'react'
-import Pager from '../components/Pager'
 import ImportExportJSON from '../components/ImportExportJSON'
 import { startPlaySelection, toggleAttach, finalizeSelection, cancelSelection, ActivePlay } from '../utils/playFlow'
 import { getModCapacityUsed, canAddModCardFrom } from '../utils/modCapacity'
@@ -9,7 +8,7 @@ import { Card } from '../domain/decks/DeckEngine'
 
 const DEFAULT_BASE_TARGET = 26
 const DEFAULT_MIN_NULLS = 5
-const MAX_PAGE_INDEX = 1
+const MAX_PAGE_INDEX = 0
 const DEFAULT_STORAGE_KEY = 'collapse.deck-builder.v2'
 const DEFAULT_MODIFIER_CAPACITY = 10
 
@@ -105,7 +104,6 @@ type DeckBuilderProps = {
   baseInitialCount?: number
   modInitialCount?: number
   forcePageIndex?: number
-  hidePager?: boolean
 }
 
 export default function DeckBuilder({
@@ -123,7 +121,6 @@ export default function DeckBuilder({
   baseInitialCount,
   modInitialCount,
   forcePageIndex,
-  hidePager = false,
 }: DeckBuilderProps){
   const baseCards = baseCardsOverride ?? (Handbook.baseCards ?? [])
   const modCards = modCardsOverride ?? (Handbook.modCards ?? [])
@@ -892,15 +889,6 @@ export default function DeckBuilder({
           </div>
         )}
       </div>
-
-      <div className="pager-nav" style={{display:'flex',justifyContent:'center',marginTop:12,gap:8}}>
-          {[{i:0,label:'Builder'},{i:1,label:'Deck Ops'}].map(({i,label}) => (
-            <div key={i} className={`pager-item`} aria-current={pageIndex === i} onClick={()=>setPageIndex(i)} style={{cursor:'pointer'}} role="button" aria-label={`Navigate to ${label}`}>
-              <div className={`pager-dot ${pageIndex === i ? 'active' : ''}`} />
-              <div className="pager-label">{label}</div>
-            </div>
-          ))}
-        </div>
     </main>
   )
 }

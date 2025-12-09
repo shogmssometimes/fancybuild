@@ -314,7 +314,7 @@ export default function App() {
   if (route === "player-ops") {
     return (
       <PlayerShell onBack={() => setRoute("hub")}>        {chudDock}
-        <DeckBuilder forcePageIndex={1} hidePager storageKey="collapse.deck-builder.v2" />
+        <DeckBuilder forcePageIndex={1} storageKey="collapse.deck-builder.v2" />
       </PlayerShell>
     );
   }
@@ -342,7 +342,6 @@ export default function App() {
     return (
       <GMShell onBack={() => setRoute("hub")}>        <DeckBuilder
           forcePageIndex={1}
-          hidePager
           storageKey="collapse.deck-builder.gm.v1"
           exportPrefix="collapse-gm-deck"
           baseCardsOverride={gmBaseCards}
