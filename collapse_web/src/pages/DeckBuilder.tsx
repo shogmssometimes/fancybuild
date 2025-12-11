@@ -10,6 +10,7 @@ const DEFAULT_BASE_TARGET = 26
 const DEFAULT_MIN_NULLS = 5
 const DEFAULT_STORAGE_KEY = 'collapse.deck-builder.v2'
 const DEFAULT_MODIFIER_CAPACITY = 10
+const DEFAULT_HAND_LIMIT = 5
 
 type CountMap = Record<string, number>
 
@@ -18,6 +19,8 @@ type DeckBuilderState = {
   modCounts: CountMap
   nullCount: number
   modifierCapacity: number
+  hasBuiltDeck?: boolean
+  hasShuffledDeck?: boolean
   // runtime deck state
   deck?: string[]
   hand?: { id: string; state: 'unspent' | 'played' }[]
@@ -31,6 +34,8 @@ type DeckBuilderState = {
     modCounts: CountMap
     nullCount: number
     modifierCapacity: number
+  hasBuiltDeck?: boolean
+  hasShuffledDeck?: boolean
     createdAt: string
   }>
   handLimit?: number
@@ -61,7 +66,7 @@ const defaultState = (baseCards: Card[], modCards: Card[], minNulls: number, def
   isLocked: false,
   deckName: '',
   savedDecks: {},
-  handLimit: 5,
+  handLimit: DEFAULT_HAND_LIMIT,
 })
 
 const loadState = (baseCards: Card[], modCards: Card[], storageKey: string, minNulls: number, defaultModCapacity: number): DeckBuilderState => {
@@ -80,7 +85,7 @@ const loadState = (baseCards: Card[], modCards: Card[], storageKey: string, minN
       discard: parsed.discard ?? [],
       isLocked: parsed.isLocked ?? false,
       deckName: parsed.deckName ?? '',
-      handLimit: parsed.handLimit ?? 5,
+      handLimit: parsed.handLimit ?? DEFAULT_HAND_LIMIT,
       savedDecks: parsed.savedDecks ?? {},
     }
   } catch {
@@ -103,7 +108,12 @@ type DeckBuilderProps = {
   baseInitialCount?: number
   modInitialCount?: number
   showBuilderSections?: boolean
-  autoOpenDock?: boolean
+  showOpsSections?: boolean
+  showModifierCards?: boolean
+  showModifierCardCounter?: boolean
+  showModifierCapacity?: boolean
+  showBaseCounters?: boolean
+  showBaseAdjusters?: boolean
 }
 
 export default function DeckBuilder({
@@ -121,7 +131,12 @@ export default function DeckBuilder({
   baseInitialCount,
   modInitialCount,
   showBuilderSections = true,
-  autoOpenDock = false,
+  showOpsSections = true,
+  showModifierCards = true,
+  showModifierCardCounter = true,
+  showModifierCapacity = true,
+  showBaseCounters = true,
+  showBaseAdjusters = true,
 }: DeckBuilderProps){
   const baseCards = baseCardsOverride ?? (Handbook.baseCards ?? [])
   const modCards = modCardsOverride ?? (Handbook.modCards ?? [])
@@ -151,20 +166,22 @@ export default function DeckBuilder({
     [baseInitialCount, baseTarget, modInitialCount, modifierCapacityDefault, primaryBaseId, primaryModId, simpleCounters]
   )
 
-  const [builderState, setBuilderState] = useState(() =>
-    applyInitialCounts(loadState(baseCards, modCards, storageKey, minNulls, modifierCapacityDefault))
-  )
+  const initialState = applyInitialCounts(loadState(baseCards, modCards, storageKey, minNulls, modifierCapacityDefault))
+  const [builderState, setBuilderState] = useState(initialState)
   const [modSearch, setModSearch] = useState('')
   const [deckSeed, setDeckSeed] = useState(0)
   const [activePlay, setActivePlay] = useState<ActivePlay>(null)
-  const [compactView, setCompactView] = useState(true)
-  const [dockOpen, setDockOpen] = useState(autoOpenDock)
-  const [dockView, setDockView] = useState<'deck' | 'hand' | 'discard'>('deck')
+  const compactView = false
+  const [hasBuiltDeck, setHasBuiltDeck] = useState(initialState.hasBuiltDeck ?? false)
+  const [hasShuffledDeck, setHasShuffledDeck] = useState(initialState.hasShuffledDeck ?? false)
+  const [opsError, setOpsError] = useState<string | null>(null)
+  const [handFocusIdx, setHandFocusIdx] = useState<number | null>(null)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    window.localStorage.setItem(storageKey, JSON.stringify(builderState))
-  }, [builderState, storageKey])
+    const payload = { ...builderState, hasBuiltDeck, hasShuffledDeck }
+    window.localStorage.setItem(storageKey, JSON.stringify(payload))
+  }, [builderState, storageKey, hasBuiltDeck, hasShuffledDeck])
 
   const baseTotal = sumCounts(builderState.baseCounts)
   const modCapacityUsed = useMemo(
@@ -202,6 +219,8 @@ export default function DeckBuilder({
   const nullValid = builderState.nullCount >= minNulls
   const modValid = simpleCounters && modCapacityAsCount ? true : modCapacityUsed <= builderState.modifierCapacity
   const deckIsValid = baseValid && nullValid && modValid
+  const lockLabel = builderState.isLocked && hasBuiltDeck && hasShuffledDeck ? 'Deck Locked + Primed' : (builderState.isLocked ? 'Deck Locked' : 'Deck Unlocked')
+  const lockPill = builderState.isLocked ? <span className="lock-pill locked">{lockLabel}</span> : <span className="lock-pill unlocked">{lockLabel}</span>
 
   // Mouse move/up handlers attached to window for desktop drag support
   const filteredModCards = useMemo(() => {
@@ -220,6 +239,9 @@ export default function DeckBuilder({
     if (nullCard) all.push(nullCard)
     return new Map(all.map((c) => [c.id, c]))
   }, [baseCards, modCards, nullCard])
+  const baseIdSet = useMemo(() => new Set(baseCards.map((c) => c.id)), [baseCards])
+  const modIdSet = useMemo(() => new Set(modCards.map((c) => c.id)), [modCards])
+  const nullId = nullCard?.id ?? null
 
   const getCard = useCallback(
     (id: string) => cardLookup.get(id) ?? Handbook.getAllCards().find((c) => c.id === id),
@@ -253,13 +275,18 @@ export default function DeckBuilder({
   const generateDeck = (shuffle = true) => {
     const newDeck = buildDeckArray()
     if (shuffle) shuffleInPlace(newDeck)
-    setBuilderState((prev) => ({ ...prev, deck: newDeck }))
+    setBuilderState((prev) => ({ ...prev, deck: newDeck, hasBuiltDeck: true, hasShuffledDeck: false }))
     setDeckSeed((s) => s + 1)
+    setHasBuiltDeck(true)
+    setHasShuffledDeck(false)
+    setOpsError(null)
   }
 
   const shuffleDeck = () => {
-    setBuilderState((prev) => ({ ...prev, deck: prev.deck ? shuffleInPlace([...prev.deck]) : [] }))
+    setBuilderState((prev) => ({ ...prev, deck: prev.deck ? shuffleInPlace([...prev.deck]) : [], hasShuffledDeck: builderState.isLocked || prev.hasShuffledDeck }))
     setDeckSeed((s) => s + 1)
+    if (builderState.isLocked) setHasShuffledDeck(true)
+    setOpsError(null)
   }
 
   // Draw a single card to hand (only allowed when deck is locked)
@@ -269,7 +296,7 @@ export default function DeckBuilder({
       if (!prev.isLocked) return prev
       // disallow drawing when hand is at or above the limit; this prevents
       // returning discard to the deck (which turns a draw into a discard)
-      if ((prev.hand ?? []).length >= (prev.handLimit ?? 5)) return prev
+      if ((prev.hand ?? []).length >= (prev.handLimit ?? DEFAULT_HAND_LIMIT)) return prev
       let deck = [...(prev.deck ?? [])]
       const hand = [...(prev.hand ?? [])]
       const discard = [...(prev.discard ?? [])]
@@ -331,11 +358,34 @@ export default function DeckBuilder({
 
   const resetDeck = () => {
     const newDeck = buildDeckArray()
-    setBuilderState((prev) => ({ ...prev, deck: shuffleInPlace(newDeck), hand: [], discard: [] }))
+    setBuilderState((prev) => ({ ...prev, deck: shuffleInPlace(newDeck), hand: [], discard: [], hasBuiltDeck: true, hasShuffledDeck: true }))
     setDeckSeed((s) => s + 1)
+    setHasBuiltDeck(true)
+    setHasShuffledDeck(true)
+    setOpsError(null)
   }
 
   // Toggle compact view already exists; ensure HUD page can be navigated
+  const needsLock = !builderState.isLocked
+  const needsBuild = builderState.isLocked && !hasBuiltDeck
+  const needsShuffle = builderState.isLocked && hasBuiltDeck && !hasShuffledDeck
+
+  const handleDraw = () => {
+    if (needsLock) {
+      setOpsError('Lock the deck before drawing.')
+      return
+    }
+    if (needsBuild) {
+      setOpsError('Build the deck before drawing.')
+      return
+    }
+    if (needsShuffle) {
+      setOpsError('Shuffle the deck before drawing.')
+      return
+    }
+    setOpsError(null)
+    draw()
+  }
 
   // Lock / Unlock the deck (save)
   const toggleLockDeck = () => {
@@ -343,17 +393,17 @@ export default function DeckBuilder({
       const nextLocked = !prev.isLocked
       if (nextLocked) {
         const built = shuffleInPlace(buildDeckArray())
-        return { ...prev, isLocked: nextLocked, deck: built, hand: [], discard: [] }
+        setHasBuiltDeck(false)
+        setHasShuffledDeck(false)
+        setOpsError('Build then shuffle before drawing.')
+        return { ...prev, isLocked: nextLocked, deck: built, hand: [], discard: [], hasBuiltDeck: false, hasShuffledDeck: false }
       }
-      return { ...prev, isLocked: nextLocked }
+      setHasBuiltDeck(false)
+      setHasShuffledDeck(false)
+      setOpsError(null)
+      return { ...prev, isLocked: nextLocked, hasBuiltDeck: false, hasShuffledDeck: false }
     })
     setDeckSeed((s) => s + 1)
-  }
-  const toggleDock = () => setDockOpen((v) => !v)
-  const openChud = () => {
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new Event('chud-open'))
-    }
   }
 
   const loadSavedDeck = (name: string) => {
@@ -371,8 +421,13 @@ export default function DeckBuilder({
         isLocked: false,
         hand: [],
         discard: [],
+        hasBuiltDeck: false,
+        hasShuffledDeck: false,
       }
     })
+    setHasBuiltDeck(false)
+    setHasShuffledDeck(false)
+    setOpsError(null)
   }
 
   const deleteSavedDeck = (name: string) => {
@@ -443,6 +498,9 @@ export default function DeckBuilder({
   const resetBuilder = () => {
     setBuilderState(applyInitialCounts(defaultState(baseCards, modCards, minNulls, modifierCapacityDefault)))
     setModSearch('')
+    setHasBuiltDeck(false)
+    setHasShuffledDeck(false)
+    setOpsError(null)
   }
 
   // Moves a discard item back to the top of the deck
@@ -479,7 +537,7 @@ export default function DeckBuilder({
   // Moves a discard item back to the hand (unspent)
   function returnDiscardItemToHand(idx: number) {
     setBuilderState((prev) => {
-      const handLimit = prev.handLimit ?? 5
+      const handLimit = prev.handLimit ?? DEFAULT_HAND_LIMIT
       if ((prev.hand ?? []).length >= handLimit) {
         // prevent returns that would exceed hand limit
         return prev
@@ -492,7 +550,7 @@ export default function DeckBuilder({
 
   function returnDiscardGroupToHand(cardId: string, all = false) {
     setBuilderState((prev) => {
-      const handLimit = prev.handLimit ?? 5
+      const handLimit = prev.handLimit ?? DEFAULT_HAND_LIMIT
       const space = Math.max(0, handLimit - (prev.hand ?? []).length)
       if (space <= 0) return prev
       const discard = [...(prev.discard ?? [])]
@@ -519,97 +577,97 @@ export default function DeckBuilder({
     }, {} as Record<string, {count:number, idxs:number[]}>)
     return Object.entries(groups).map(([id,g]) => {
       const card = getCard(id)
+      const lowerType = (card?.type ?? '').toLowerCase()
+      const isNullCard = (nullId && id === nullId) || lowerType === 'null'
+      const isMod = modIdSet.has(id) && !isNullCard
+      const typeLabel = isNullCard ? 'Null' : (isMod ? 'Modifier' : 'Base')
+      let modText = ''
+      let modTarget: string | null = null
       return (
-        <div key={id} className={`card base-card small-card compact`}>
-          <div className="card-header">
-            <div className="card-title"><div className="card-name">{card?.name ?? id} <span className="muted text-section">(x{g.count})</span></div></div>
+        <div key={id} className={`hand-card card ${isMod ? 'mod-card' : 'base-card'}`}>
+          <div className="card-header hand-card-header" style={{ gap: 12 }}>
+            <div className="card-title" style={{ minWidth: 0, flex: '1 1 auto' }}>
+              <div className="card-name">{card?.name ?? id} <span className="muted text-section">(x{g.count})</span></div>
+              {isMod && <div className="muted text-body">Cost {card?.cost ?? 0}</div>}
+              {!isMod && !isNullCard && <div className="muted text-body">Base</div>}
+              {isNullCard && <div className="muted text-body">Null</div>}
+              {isMod && (
+                <div className="hand-subtitle">
+                  <span className="hand-type">{typeLabel}</span>
+                </div>
+              )}
+            </div>
             <div className="card-controls">
-              <button className="counter-btn" onClick={()=>returnDiscardGroupToDeck(id)}>Deck</button>
-              <button className="counter-btn" onClick={()=>returnDiscardGroupToHand(id, true)} disabled={(builderState.hand ?? []).length >= (builderState.handLimit ?? 5)}>Hand</button>
-            </div>
+                          </div>
           </div>
-          <div className="muted text-body">Stacked</div>
-          <div style={{marginTop:8}}>{renderDetails(card ?? {id, name:id, type:'', cost:0, text:'' as any})}</div>
-          
+          {isMod && renderDetails(card ?? { id, name: id, type: typeLabel, cost: card?.cost ?? 0, text: '' as any })}
         </div>
       )
     })
-  }, [builderState.discard, builderState.hand, builderState.handLimit])
+  }, [builderState.discard, builderState.hand, builderState.handLimit, getCard, modIdSet, nullId, returnDiscardGroupToDeck, returnDiscardGroupToHand])
 
-  const groupedHandStacks = (() => {
-    const groups = (builderState.hand ?? []).reduce((acc: Record<string, {count:number}>, entry) => {
-      const g = acc[entry.id] ?? { count: 0 }
-      g.count += 1
-      acc[entry.id] = g
-      return acc
-    }, {} as Record<string, {count:number}>)
+  const groupedHandStacks = useMemo(() => {
+    const handList = builderState.hand ?? []
 
-    return Object.entries(groups).map(([id, group]) => {
+    return handList.map((entry, idx) => {
+      const id = entry.id
       const card = getCard(id)
-      const typeLabel = card?.type ?? 'Base'
-      const isBase = typeLabel.toLowerCase() === 'base'
-      const isQueuedModifier = !isBase && !!activePlay?.mods?.includes(id)
-      const highlight = isBase && activePlay?.baseId === id
-        ? 'Selected Base'
-        : (isQueuedModifier ? 'Queued' : null)
-      const canPlayBase = isBase && !activePlay
-      const canAttach = !isBase && !!activePlay
+      const lowerType = (card?.type ?? '').toLowerCase()
+      const isNullCard = (nullId && id === nullId) || lowerType === 'null'
+      const isMod = modIdSet.has(id) && !isNullCard
+      const isBase = baseIdSet.has(id) || (!isMod && !isNullCard)
+      const typeLabel = isNullCard ? 'Null' : (isMod ? 'Modifier' : 'Base')
+      const isQueuedModifier = isMod && !!activePlay?.mods?.includes(id)
+      const isSelectedBase = isBase && activePlay?.baseId === id
+      const canSelectBase = isBase && !isNullCard
+      const canAttach = isMod && !!activePlay?.baseId
+      let modText = ''
+      let modTarget: string | null = null
+
+      const handCount = handList.length || 1
+      const center = (handCount - 1) / 2
+      const offset = idx - center
+      const liftBase = 8
+      const liftRange = 14
+      const lift = liftBase + Math.max(0, 1 - Math.abs(offset) / Math.max(1, center || 1)) * liftRange
+
+      const cardClass = `${isBase ? 'hand-card card base-card' : 'hand-card card mod-card'}${isSelectedBase ? ' selected-base' : ''}${isQueuedModifier ? ' attached-mod' : ''}`
+      const handCardStyle = {
+        ['--hand-offset' as any]: offset,
+        ['--hand-index' as any]: idx,
+        ['--hand-count' as any]: handCount,
+        ['--hand-lift' as any]: `${lift}px`,
+      } as React.CSSProperties
 
       return (
-        <div key={id} className="hand-card">
-          <div className="hand-meta">
-            <div>
-              <div className="hand-title">{card?.name ?? id}</div>
-              <div className="hand-subtitle">
-                <span className="hand-type">{typeLabel}</span>
-                <span className="hand-count">x{group.count}</span>
-                {highlight && <span className="hand-pill accent">{highlight}</span>}
-              </div>
+        <div key={`${id}-${idx}`} className={cardClass} style={handCardStyle}>
+          <div className="card-header" style={{ gap: 12 }}>
+            <div className="card-title" style={{ minWidth: 0, flex: '1 1 auto' }}>
+              <div className="card-name">{card?.name ?? id}</div>
             </div>
           </div>
-          <div className="hand-actions">
-            {isBase ? (
-              <button onClick={() => startPlayBase(id)} disabled={!canPlayBase}>Play Base</button>
-            ) : (
-              <button onClick={() => attachModifier(id)} disabled={!canAttach}>Attach</button>
-            )}
-            <button onClick={() => playSingleFromHand(id)}>Play</button>
-            <button onClick={() => discardGroupFromHand(id, false, 'discarded')}>Discard One</button>
-            {group.count > 1 && (
-              <button onClick={() => discardGroupFromHand(id, true, 'discarded')}>Discard Stack</button>
-            )}
+          {isNullCard && <div className="hand-hint">Null cards can only be discarded.</div>}
+          {!canAttach && isMod && !activePlay && <div className="hand-hint">Select a base before attaching modifiers.</div>}
+          {isMod && renderDetails(card ?? { id, name: id, type: typeLabel, cost: card?.cost ?? 0, text: '' as any })}
+          <div className="hand-actions hand-actions-inline">
+            <div className="hand-actions-right">
+              {canSelectBase && (
+                <button onClick={() => startPlayBase(id)} disabled={isSelectedBase}>
+                  {isSelectedBase ? 'Selected' : 'Play Base'}
+                </button>
+              )}
+              {isMod && (
+                <button className="primary-btn" onClick={() => attachModifier(id)} disabled={!canAttach}>
+                  {isQueuedModifier ? 'Detach' : 'Attach Mod'}
+                </button>
+              )}
+              <button onClick={() => discardGroupFromHand(id, false, 'discarded')}>Discard</button>
+            </div>
           </div>
-          {!isBase && !activePlay && (
-            <div className="hand-hint">Select a base before attaching modifiers.</div>
-          )}
         </div>
       )
     })
-  })()
-
-  const dockDeckGroups = useMemo(() => {
-    const groups = (builderState.deck ?? []).reduce((acc: Record<string, number>, id) => {
-      acc[id] = (acc[id] ?? 0) + 1
-      return acc
-    }, {})
-    return Object.entries(groups)
-  }, [builderState.deck])
-
-  const dockHandGroups = useMemo(() => {
-    const groups = (builderState.hand ?? []).reduce((acc: Record<string, number>, h) => {
-      acc[h.id] = (acc[h.id] ?? 0) + 1
-      return acc
-    }, {})
-    return Object.entries(groups)
-  }, [builderState.hand])
-
-  const dockDiscardGroups = useMemo(() => {
-    const groups = (builderState.discard ?? []).reduce((acc: Record<string, number>, d) => {
-      acc[d.id] = (acc[d.id] ?? 0) + 1
-      return acc
-    }, {})
-    return Object.entries(groups)
-  }, [builderState.discard])
+  }, [builderState.hand, activePlay, getCard, baseIdSet, modIdSet, nullId])
 
   // Move grouped items from hand to discard (single or all)
   function discardGroupFromHand(cardId: string, all = false, origin: 'played' | 'discarded' = 'discarded') {
@@ -630,29 +688,36 @@ export default function DeckBuilder({
     })
   }
 
-  function playSingleFromHand(cardId: string) {
-    setBuilderState((prev): DeckBuilderState => {
-      const hand = [...(prev.hand ?? [])]
-      const idx = hand.findIndex((h) => h.id === cardId)
-      if (idx === -1) return prev
-      const item = hand.splice(idx, 1)[0]
-      const discardEntry: { id: string; origin: 'played' | 'discarded' } = { id: item.id, origin: 'played' }
-      const discard = [...(prev.discard ?? []), discardEntry]
-      return { ...prev, hand, discard }
-    })
-  }
-
   // Play flow handlers (use pure helpers)
   function startPlayBase(cardId: string) {
+    if (nullId && cardId === nullId) {
+      setOpsError('Null cards can only be discarded.')
+      return
+    }
+    if (modIdSet.has(cardId)) {
+      setOpsError('Select a base before playing modifiers.')
+      return
+    }
+    setOpsError(null)
     setActivePlay((prev) => startPlaySelection(prev, cardId))
   }
 
   function attachModifier(cardId: string) {
+    if (nullId && cardId === nullId) {
+      setOpsError('Null cards can only be discarded.')
+      return
+    }
+    if (!activePlay?.baseId) {
+      setOpsError('Select a base before attaching modifiers.')
+      return
+    }
+    if (!modIdSet.has(cardId)) return
     const handCounts = (builderState.hand ?? []).reduce<Record<string, number>>((acc, it) => {
       acc[it.id] = (acc[it.id] ?? 0) + 1
       return acc
     }, {})
     const cardCosts = Array.from(cardLookup.values()).reduce<Record<string, number>>((acc, c) => { acc[c.id] = c.cost ?? 0; return acc }, {})
+    setOpsError(null)
     setActivePlay((prev) => toggleAttach(prev, cardId, handCounts, cardCosts, builderState.modifierCapacity))
   }
 
@@ -685,179 +750,365 @@ export default function DeckBuilder({
     )
   }
 
+  const handCount = (builderState.hand ?? []).length
+  const handHasSelection = !!activePlay?.baseId || (activePlay?.mods?.length ?? 0) > 0
+  const handStackClass = `hand-stack${handHasSelection ? ' hand-has-active' : ''}`
+
   return (
     <main className="app-shell">
 
       {showBuilderSections && (
         <div className="page">
           <div className="page-header">
-              <div>
-                <h1>Engram Deck Builder</h1>
-                <p className="muted">Assemble decks with your chosen cards. Decks require {baseTarget} base cards, at least {minNulls} Nulls, and staying within modifier capacity.</p>
-                <div style={{marginTop:8, display:'flex', gap:8, alignItems:'center'}}>
-                    <ImportExportJSON filenamePrefix={exportPrefix} />
-                    <button onClick={()=>setCompactView((c)=>!c)} aria-pressed={compactView} aria-label="Toggle compact view">{compactView ? 'Compact View' : 'Default View'}</button>
-                  </div>
+            <div>
+              <h1>Engram Deck Builder</h1>
+              <p className="muted">Assemble decks with your chosen cards. Decks require {baseTarget} base cards, at least {minNulls} Nulls, and staying within modifier capacity.</p>
+              <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
+                <ImportExportJSON filenamePrefix={exportPrefix} />
               </div>
             </div>
-          <section className={`card-grid base-card-grid ${compactView ? 'compact' : ''}`}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              {lockPill}
+            </div>
+          </div>
+          <section className="card-grid base-card-grid">
             <div>
               <div className="muted text-body">Base Cards</div>
-              <div className="stat-large">
-                {simpleCounters ? baseTotal : `${baseTotal} / ${baseTarget}`}
-              </div>
+              {showBaseCounters && <div className="stat-large">{simpleCounters ? baseTotal : `${baseTotal} / ${baseTarget}`}</div>}
               {!baseValid && !simpleCounters && <div className="status-warning text-body">Deck must contain exactly {baseTarget} base cards.</div>}
-              <div className="counter-inline" role="group" aria-label="Adjust base cards" style={{marginTop:8}}>
-                <button
-                  className="counter-btn"
-                  onClick={() => adjustPrimaryBaseCount(-1)}
-                  disabled={builderState.isLocked}
-                >
-                  -
-                </button>
-                <div className="counter-value counter-pill">{primaryBaseId ? (builderState.baseCounts[primaryBaseId] ?? 0) : baseTotal}</div>
-                <button
-                  className="counter-btn"
-                  onClick={() => adjustPrimaryBaseCount(1)}
-                  disabled={builderState.isLocked || (!simpleCounters && baseTotal >= baseTarget)}
-                >
-                  +
-                </button>
-              </div>
+              {showBaseAdjusters && (
+                <div className="counter-inline" role="group" aria-label="Adjust base cards" style={{ marginTop: 8 }}>
+                  <button className="counter-btn" onClick={() => adjustPrimaryBaseCount(-1)} disabled={builderState.isLocked}>-</button>
+                  <div className="counter-value counter-pill">{primaryBaseId ? (builderState.baseCounts[primaryBaseId] ?? 0) : baseTotal}</div>
+                  <button className="counter-btn" onClick={() => adjustPrimaryBaseCount(1)} disabled={builderState.isLocked || (!simpleCounters && baseTotal >= baseTarget)}>+</button>
+                </div>
+              )}
             </div>
 
             <div>
               <div className="muted text-body">Null Cards</div>
               <div className="stat-large">{builderState.nullCount}</div>
-              <div className="counter-inline" role="group" aria-label="Adjust null cards" style={{marginTop:8}}>
-                <button
-                  className="counter-btn"
-                  onClick={() => adjustNullCount(-1)}
-                  disabled={builderState.nullCount <= minNulls || builderState.isLocked}
-                >
-                  -
-                </button>
+              <div className="counter-inline" role="group" aria-label="Adjust null cards" style={{ marginTop: 8 }}>
+                <button className="counter-btn" onClick={() => adjustNullCount(-1)} disabled={builderState.nullCount <= minNulls || builderState.isLocked}>-</button>
                 <div className="counter-value counter-pill">{builderState.nullCount}</div>
-                <button
-                  className="counter-btn"
-                  onClick={() => adjustNullCount(1)}
-                  disabled={builderState.isLocked}
-                >
-                  +
-                </button>
+                <button className="counter-btn" onClick={() => adjustNullCount(1)} disabled={builderState.isLocked}>+</button>
               </div>
               {!nullValid && <div className="status-warning text-body">Minimum of {minNulls} Nulls required.</div>}
             </div>
-            <div>
-              <div className="muted text-body">Modifier Cards</div>
-              <div className="stat-large">
-                {simpleCounters && modCapacityAsCount ? modCapacityUsed : `${modCapacityUsed} / ${builderState.modifierCapacity}`}
+            {showModifierCapacity && (
+              <div>
+                <div className="muted text-body">Modifier Capacity</div>
+                <div className="stat-large">{builderState.modifierCapacity}</div>
+                <div className="counter-inline" role="group" aria-label="Adjust modifier capacity" style={{ marginTop: 8 }}>
+                  <button className="counter-btn" onClick={() => adjustModifierCapacity(-1)}>-</button>
+                  <div className="counter-value counter-pill">{builderState.modifierCapacity}</div>
+                  <button className="counter-btn" onClick={() => adjustModifierCapacity(1)}>+</button>
+                </div>
               </div>
-              <div className="counter-inline" role="group" aria-label="Adjust modifier cards" style={{marginTop:8}}>
-                <button
-                  className="counter-btn"
-                  onClick={() => adjustPrimaryModCount(-1)}
-                  disabled={builderState.isLocked}
-                >
-                  -
-                </button>
-                <div className="counter-value counter-pill">{primaryModId ? (builderState.modCounts[primaryModId] ?? 0) : modCapacityUsed}</div>
-                <button
-                  className="counter-btn"
-                  onClick={() => adjustPrimaryModCount(1)}
-                  disabled={builderState.isLocked || (!simpleCounters && !canAddModCard(primaryModId ?? ''))}
-                >
-                  +
-                </button>
+            )}
+            {showModifierCards && showModifierCardCounter && (
+              <div>
+                <div className="muted text-body">Modifier Cards</div>
+                <div className="stat-large">
+                  {simpleCounters && modCapacityAsCount ? modCapacityUsed : `${modCapacityUsed} / ${builderState.modifierCapacity}`}
+                </div>
+                <div className="counter-inline" role="group" aria-label="Adjust modifier cards" style={{ marginTop: 8 }}>
+                  <button className="counter-btn" onClick={() => adjustPrimaryModCount(-1)} disabled={builderState.isLocked}>-</button>
+                  <div className="counter-value counter-pill">{primaryModId ? (builderState.modCounts[primaryModId] ?? 0) : modCapacityUsed}</div>
+                  <button className="counter-btn" onClick={() => adjustPrimaryModCount(1)} disabled={builderState.isLocked || (!simpleCounters && !canAddModCard(primaryModId ?? ''))}>+</button>
+                </div>
+                <div className="muted text-body" style={{ marginTop: 6 }}>
+                  {simpleCounters && modCapacityAsCount ? 'Mod Cards' : 'Mod Cards Used'}
+                </div>
+                {!modValid && <div className="status-error text-body">Reduce modifier cards or raise capacity.</div>}
               </div>
-              <div className="muted text-body" style={{marginTop:6}}>
-                {simpleCounters && modCapacityAsCount ? 'Mod Cards' : 'Mod Cards Used'}
-              </div>
-              {!modValid && <div className="status-error text-body">Reduce modifier cards or raise capacity.</div>}
-            </div>
+            )}
             <div>
               <div className="muted text-body">Deck Status</div>
               <div className={`stat-large ${deckIsValid ? 'status-success' : 'status-error'}`}>{deckIsValid ? 'Ready' : 'Needs Attention'}</div>
-              <button onClick={resetBuilder} style={{marginTop:8}}>Reset Builder</button>
+              <button onClick={resetBuilder} style={{ marginTop: 8 }}>Reset Builder</button>
+            </div>
+          </section>
+
+          {!simpleCounters && (
+            <>
+              <section className="compact">
+                <div className="page-header" style={{ marginBottom: 6 }}>
+                  <div>
+                    <h2 style={{ marginBottom: 4 }}>Base Cards</h2>
+                    <p className="muted" style={{ marginTop: 0 }}>Add base cards until you reach {baseTarget} total base cards.</p>
+                  </div>
+                  <div className="muted text-body">Tap a card to adjust counts.</div>
+                </div>
+                <div className="card-grid base-card-grid">
+                  {baseCards.map((card) => {
+                    const qty = builderState.baseCounts[card.id] ?? 0
+                    const isSelectedBase = activePlay?.baseId === card.id
+                    return (
+                      <div key={card.id} className={`card base-card ${isSelectedBase ? 'is-selected' : ''}`}>
+                        <div className="card-header">
+                          <div className="card-title" style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
+                            <div className="card-name">{card.name}</div>
+                            <div className="card-controls card-controls-bottom">
+                              <button className="counter-btn" onClick={() => adjustBaseCount(card.id, -1)} disabled={qty === 0 || builderState.isLocked}>-</button>
+                              <div className="counter-value">{qty}</div>
+                              <button className="counter-btn" onClick={() => adjustBaseCount(card.id, 1)} disabled={baseTotal >= baseTarget || builderState.isLocked}>+</button>
+                            </div>
+                            {isSelectedBase && <div className="accent text-footnote">Selected Base</div>}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </section>
+
+              {showModifierCards && (
+                <section className="compact" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <h2 style={{ marginBottom: 4 }}>Modifier Cards</h2>
+                      <p className="muted" style={{ marginTop: 0 }}>Each modifier consumes capacity equal to its card cost. Stay within your Engram Modifier Capacity.</p>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <label style={{ fontWeight: 600 }}>Search Mods</label>
+                      <input type="text" placeholder="Search name, target, effect" value={modSearch} onChange={(event) => setModSearch(event.target.value)} style={{ minWidth: 0, width: '100%' }} />
+                    </div>
+                  </div>
+
+                  <div className="card-grid mod-card-grid">
+                    {filteredModCards.map((card) => {
+                      const qty = builderState.modCounts[card.id] ?? 0
+                      const cost = card.cost ?? 0
+                      const isAttached = activePlay?.mods?.includes(card.id)
+                      const canAddMore = canAddModCard(card.id)
+                      let modText = card.text ?? ''
+                      let modTarget: string | null = null
+                      if (card.text) {
+                        const m = card.text.match(/^(.*?)(?:\s*[•·]\s*|\s+)Target:\s*(.*)$/i)
+                        if (m) {
+                          modText = m[1].trim()
+                          modTarget = m[2]?.trim() || null
+                        }
+                      }
+                      return (
+                        <div key={card.id} className={`card mod-card ${isAttached ? 'is-selected' : ''}`}>
+                          <div className="card-header" style={{ gap: 12 }}>
+                            <div className="card-title" style={{ minWidth: 0, flex: '1 1 auto' }}>
+                              <div className="card-name">{card.name}</div>
+                              <div className="muted text-body">Cost {cost}</div>
+                              {isAttached && <div className="accent text-footnote" style={{ marginTop: 4 }}>Attached</div>}
+                            </div>
+                            <div className="card-controls">
+                              <button className="counter-btn" onClick={() => adjustModCount(card.id, -1)} disabled={qty === 0 || builderState.isLocked}>-</button>
+                              <div className="counter-value">{qty}</div>
+                              <button className="counter-btn" onClick={() => adjustModCount(card.id, 1)} disabled={builderState.isLocked || !canAddMore}>+</button>
+                            </div>
+                          </div>
+                          {!canAddMore && <div className="capacity-reached">Capacity reached</div>}
+                          {showCardDetails && (!card.details || card.details.length === 0) && (
+                            <div className="text-body card-text" style={{ margin: 0 }}>
+                              {modText && <div>{modText}</div>}
+                              {modTarget && <div className="target-line">Target: {modTarget}</div>}
+                              {!modText && !modTarget && card.text && <div>{card.text}</div>}
+                            </div>
+                          )}
+                          {renderDetails(card)}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </section>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {showOpsSections && (
+        <div className="page">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <section className="card-grid base-card-grid">
+              <div style={{ marginBottom: 12 }}>
+                <div
+                  className={handStackClass}
+                  style={{ marginTop: 10, ['--hand-count' as any]: handCount } as React.CSSProperties}
+                >
+                  {groupedHandStacks.length > 0 ? groupedHandStacks : <div className="muted">No cards in hand</div>}
+                </div>
+                <div className="text-body hand-count-row" style={{ marginTop: 8 }}>
+                  Hand: <strong>{(builderState.hand ?? []).length}</strong> / {builderState.handLimit ?? DEFAULT_HAND_LIMIT}
+                </div>
+                {activePlay && (
+                  <div className="play-overlay" style={{ marginTop: 8 }}>
+                    <div className="play-overlay-header">
+                      <div>
+                        <div className="muted text-body">Current Play</div>
+                        <div className="play-overlay-title">{cardLookup.get(activePlay.baseId)?.name ?? activePlay.baseId}</div>
+                      </div>
+                      <button onClick={() => cancelPlay()}>Clear</button>
+                    </div>
+                    <div className="play-overlay-body">
+                      <div className="play-overlay-list">
+                        <div className="muted text-body">Base</div>
+                        <div>{cardLookup.get(activePlay.baseId)?.name ?? activePlay.baseId}</div>
+                      </div>
+                      <div className="play-overlay-list">
+                        <div className="muted text-body">Modifiers</div>
+                        {activePlay.mods.length === 0 && <div className="muted">None</div>}
+                        {activePlay.mods.map((m) => (
+                          <div key={m} className="play-overlay-mod">
+                            <span className="play-overlay-mod-name">{cardLookup.get(m)?.name ?? m}</span>
+                            <span className="play-attach-pill">Attached</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="play-overlay-actions">
+                      <button onClick={() => finalizePlay()}>Finalize Play</button>
+                      <button onClick={() => cancelPlay()}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* Deck Operations directly below the hand */}
+            <section className="card-grid base-card-grid">
+              <div>
+                <h2>Deck Operations</h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  {lockPill}
+                  <button
+                    className={needsLock ? 'cta-pulse' : undefined}
+                    onClick={() => toggleLockDeck()}
+                  >
+                    {builderState.isLocked ? 'Unlock Deck' : 'Lock Deck'}
+                  </button>
+                </div>
+                <p className="muted" style={{ marginTop: 0 }}>Shuffle, draw, and discard cards from your deck. Draw uses the top-of-deck (LIFO) model.</p>
+                <div className="ops-toolbar">
+                  <button
+                    className={builderState.isLocked && !hasBuiltDeck ? 'cta-pulse' : undefined}
+                    onClick={() => generateDeck(true)}
+                  >
+                    Build Deck
+                  </button>
+                  <button
+                    className={builderState.isLocked && hasBuiltDeck && !hasShuffledDeck ? 'cta-pulse' : undefined}
+                    onClick={() => shuffleDeck()}
+                  >
+                    Shuffle
+                  </button>
+                  <button
+                    onClick={handleDraw}
+                    disabled={(builderState.hand ?? []).length >= (builderState.handLimit ?? DEFAULT_HAND_LIMIT)}
+                  >
+                    Draw 1
+                  </button>
+                </div>
+                {opsError && <div className="ops-error">{opsError}</div>}
+                <div style={{ marginTop: 12 }}>
+                  <div className="text-body">Deck Count: <strong>{(builderState.deck ?? []).length}</strong></div>
+                  <div className="text-body">Discard Count: <strong>{(builderState.discard ?? []).length}</strong></div>
+                  <div style={{ marginTop: 8 }}>
+                    <label style={{ fontWeight: 600 }}>Hand Limit</label>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+                      <input
+                        type="number"
+                        min={0}
+                        value={builderState.handLimit ?? DEFAULT_HAND_LIMIT}
+                        onChange={(e) => {
+                          const next = Number.parseInt(e.target.value, 10)
+                          setBuilderState((prev) => ({
+                            ...prev,
+                            handLimit: Number.isNaN(next) ? prev.handLimit ?? DEFAULT_HAND_LIMIT : clamp(next, 0, DEFAULT_HAND_LIMIT),
+                          }))
+                        }}
+                        style={{ width: 80, maxWidth: '100%', textAlign: 'center' }}
+                      />
+                      <div className="muted text-body">Active cap for hand cards.</div>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ fontWeight: 600 }}>Saved Decks</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
+                      {Object.keys(builderState.savedDecks ?? {}).length === 0 && <div className="muted">No saved decks</div>}
+                      {Object.entries(builderState.savedDecks ?? {}).map(([k, v]) => (
+                        <div key={k} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <div style={{ minWidth: 160 }}>{v.name}</div>
+                          <button onClick={() => loadSavedDeck(k)}>Load</button>
+                          <button onClick={() => deleteSavedDeck(k)}>Delete</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <section style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <div>
+              <h3>Discard Pile</h3>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+                <div className="muted text-body">Duplicates stacked</div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {groupedDiscardElements}
+                {(groupedDiscardElements?.length ?? 0) === 0 && (builderState.discard ?? []).map((item, idx) => {
+                  const card = getCard(item.id)
+                  const lowerType = (card?.type ?? '').toLowerCase()
+                  const isNullCard = (nullId && item.id === nullId) || lowerType === 'null'
+                  const isMod = modIdSet.has(item.id) && !isNullCard
+                  const typeLabel = isNullCard ? 'Null' : (isMod ? 'Modifier' : 'Base')
+                  let modText = card?.text ?? ''
+                  let modTarget: string | null = null
+                  if (isMod && card?.text) {
+                    const m = card.text.match(/^(.*?)(?:\s*[•·]\s*|\s+)Target:\s*(.*)$/i)
+                    if (m) {
+                      modText = m[1].trim()
+                      modTarget = m[2]?.trim() || null
+                    }
+                  }
+                  return (
+                    <div key={idx} className={`hand-card card ${isMod ? 'mod-card' : 'base-card'}`}>
+                      <div className="card-header" style={{ gap: 12 }}>
+                        <div className="card-title" style={{ minWidth: 0, flex: '1 1 auto' }}>
+                          <div className="card-name" style={{ fontWeight: 700 }}>{card?.name ?? item.id}</div>
+                          {isMod && <div className="muted text-body">Cost {card?.cost ?? 0}</div>}
+                          {!isMod && !isNullCard && <div className="muted text-body">Base</div>}
+                          {isNullCard && <div className="muted text-body">Null</div>}
+                          {isMod && (
+                            <div className="hand-subtitle">
+                              <span className="hand-type">{typeLabel}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="card-controls">
+                                                  </div>
+                      </div>
+                      {isMod && (
+                        <>
+                          <div className="text-body card-text" style={{ margin: '8px 0 0 0' }}>
+                            {modText && <div>{modText}</div>}
+                            {modTarget && <div className="target-line">Target: {modTarget}</div>}
+                            {!modText && !modTarget && card?.text && <div>{card.text}</div>}
+                          </div>
+                          {renderDetails(card ?? { id: item.id, name: item.id, type: typeLabel, cost: card?.cost ?? 0, text: '' as any })}
+                        </>
+                      )}
+                      <div className="muted text-body">#{idx + 1} • {item.origin === 'played' ? 'Played' : 'Discarded'}</div>
+                    </div>
+                  )
+                })}
+                {((builderState.discard ?? []).length === 0) && <div className="muted">Discard pile is empty</div>}
+              </div>
             </div>
           </section>
         </div>
       )}
 
-      <div className={`deck-dock ${dockOpen ? 'open' : ''}`} role="group" aria-label="Deck dock">
-        <div className="deck-dock-top">
-          <div className="deck-dock-handle" onClick={toggleDock} />
-          <div className="deck-dock-stats">
-            <span>Deck {builderState.deck?.length ?? 0}</span>
-            <span>Hand {builderState.hand?.length ?? 0}</span>
-            <span>Discard {builderState.discard?.length ?? 0}</span>
-          </div>
-          <div className="deck-dock-actions">
-            <button onClick={toggleLockDeck}>{builderState.isLocked ? 'Unlock' : 'Build/Lock'}</button>
-            <button onClick={shuffleDeck}>Shuffle</button>
-            <button onClick={draw}>Draw 1</button>
-            <button onClick={openChud}>cHUD</button>
-          </div>
-        </div>
-        {dockOpen && (
-          <div className="deck-dock-sheet">
-            <div className="dock-tabs">
-              {['deck','hand','discard'].map((tab) => (
-                <button
-                  key={tab}
-                  className={`dock-tab ${dockView === tab ? 'active' : ''}`}
-                  onClick={() => setDockView(tab as typeof dockView)}
-                >
-                  {tab === 'deck' ? 'Deck' : tab === 'hand' ? 'Hand' : 'Discard'}
-                </button>
-              ))}
-            </div>
-            <div className="dock-list">
-              {dockView === 'deck' && (
-                <div className="dock-chips">
-                  {dockDeckGroups.map(([id, count]) => (
-                    <div key={id} className="deck-chip row">
-                      <span>{getCard(id)?.name ?? id}</span>
-                      <span className="pill">x{count}</span>
-                    </div>
-                  ))}
-                  {dockDeckGroups.length === 0 && <div className="muted">Deck is empty</div>}
-                </div>
-              )}
-              {dockView === 'hand' && (
-                <div className="dock-chips">
-                  {dockHandGroups.map(([id, count]) => (
-                    <div key={id} className="deck-chip row">
-                      <span>{getCard(id)?.name ?? id}</span>
-                      <span className="pill">x{count}</span>
-                      <div className="chip-actions">
-                        <button onClick={() => playSingleFromHand(id)}>Play</button>
-                        <button onClick={() => discardGroupFromHand(id, false, 'discarded')}>Discard</button>
-                      </div>
-                    </div>
-                  ))}
-                  {dockHandGroups.length === 0 && <div className="muted">Hand is empty</div>}
-                </div>
-              )}
-              {dockView === 'discard' && (
-                <div className="dock-chips">
-                  {dockDiscardGroups.map(([id, count]) => (
-                    <div key={id} className="deck-chip row">
-                      <span>{getCard(id)?.name ?? id}</span>
-                      <span className="pill">x{count}</span>
-                      <div className="chip-actions">
-                        <button onClick={() => returnDiscardGroupToDeck(id, true)}>To Deck</button>
-                        <button onClick={() => returnDiscardGroupToHand(id, true)} disabled={(builderState.hand ?? []).length >= (builderState.handLimit ?? 5)}>To Hand</button>
-                      </div>
-                    </div>
-                  ))}
-                  {dockDiscardGroups.length === 0 && <div className="muted">Discard is empty</div>}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
     </main>
   )
 }
