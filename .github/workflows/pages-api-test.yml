@@ -26,14 +26,14 @@ jobs:
           node -v && npm -v
 
       - name: Install dependencies
-        working-directory: collapse_web
+        working-directory: collapse_web_new
         run: npm ci
       - name: Rebuild native modules (diagnostic)
-        working-directory: collapse_web
+        working-directory: collapse_web_new
         run: npm rebuild || true
 
       - name: Node & Rollup version (light)
-        working-directory: collapse_web
+        working-directory: collapse_web_new
         run: |
           node -v && npm -v
           node -e "try { console.log('rollup', require('rollup/package.json').version) } catch (e) { console.error('rollup not found') }" || true
@@ -41,14 +41,14 @@ jobs:
       # Removed explicit rollup native install; rely on npm install and npm rebuild steps during CI.
 
       - name: Build site
-        working-directory: collapse_web
+        working-directory: collapse_web_new
         run: npm run build
 
       - name: Upload pages artifact (Pages API format)
         uses: actions/upload-pages-artifact@v3
         with:
           name: pages-node-20
-          path: collapse_web/docs
+          path: collapse_web_new/docs
 
   build-18:
     runs-on: ubuntu-latest
@@ -62,14 +62,14 @@ jobs:
           node-version: 18
 
       - name: Install dependencies
-        working-directory: collapse_web
+        working-directory: collapse_web_new
         run: npm ci
       - name: Rebuild native modules (diagnostic)
-        working-directory: collapse_web
+        working-directory: collapse_web_new
         run: npm rebuild || true
 
       - name: Check Rollup bindings (diagnostic)
-        working-directory: collapse_web
+        working-directory: collapse_web_new
         run: |
           node -v && npm -v
           echo "rollup/package.json:"
@@ -83,7 +83,7 @@ jobs:
 
       - name: Ensure rollup native (Linux x64) if missing
         if: runner.os == 'Linux'
-        working-directory: collapse_web
+        working-directory: collapse_web_new
         run: |
           set -euxo pipefail
           ROLLUP_VER=$(node -p "require('rollup/package.json').version")
@@ -94,14 +94,14 @@ jobs:
           ls -la node_modules/@rollup || true
 
       - name: Build site
-        working-directory: collapse_web
+        working-directory: collapse_web_new
         run: npm run build
 
       - name: Upload pages artifact (Pages API format)
         uses: actions/upload-pages-artifact@v3
         with:
           name: pages-node-18
-          path: collapse_web/docs
+          path: collapse_web_new/docs
 
   deploy:
     runs-on: ubuntu-latest

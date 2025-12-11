@@ -33,57 +33,57 @@ jobs:
       - name: Cache node modules
         uses: actions/cache@v4
         with:
-          path: collapse_web/node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('collapse_web/package-lock.json') }}
+          path: collapse_web_new/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('collapse_web_new/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
 
       - name: Node & npm version
         run: |
           node -v && npm -v
-        working-directory: collapse_web
+        working-directory: collapse_web_new
 
-      - name: Install dependencies (collapse_web)
+      - name: Install dependencies (collapse_web_new)
         env:
           # Prevent Playwright from automatically downloading browser binaries during npm install
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
         run: |
           set -euxo pipefail
-          echo "Installing dependencies in collapse_web (verbose)"
+          echo "Installing dependencies in collapse_web_new (verbose)"
           echo "Node: $(node -v)" && echo "NPM: $(npm -v)"
           # Show .npmrc if present so we can debug auth/registry config issues
-          echo "--- collapse_web/.npmrc (if present) ---"
-          cat collapse_web/.npmrc || true
+          echo "--- collapse_web_new/.npmrc (if present) ---"
+          cat collapse_web_new/.npmrc || true
           # Run install without silent to ensure logs are captured in Actions output
           npm ci --no-audit --loglevel=verbose
           echo "Installed packages; node modules count:"
-          ls -la collapse_web/node_modules | wc -l || true
-        working-directory: collapse_web
+          ls -la collapse_web_new/node_modules | wc -l || true
+        working-directory: collapse_web_new
 
       - name: Ensure Rollup native binary (linux x64)
         if: runner.os == 'Linux'
         run: |
           set -euxo pipefail
           npm install --no-save @rollup/rollup-linux-x64-gnu
-        working-directory: collapse_web
+        working-directory: collapse_web_new
 
       # removed verbose Rollup diagnostics; kept minimal node/npm version above
 
       # removed explicit rollup native install; rely on npm install and npm rebuild
 
-      - name: Run tests (collapse_web)
+      - name: Run tests (collapse_web_new)
         run: npm test -- --run
-        working-directory: collapse_web
+        working-directory: collapse_web_new
         continue-on-error: true
 
-      - name: Build (collapse_web)
+      - name: Build (collapse_web_new)
         run: |
           set -euxo pipefail
           echo "Checking package.json scripts:"
           cat package.json | jq -r '.scripts'
           echo "Starting build"
           npm run build --if-present
-        working-directory: collapse_web
+        working-directory: collapse_web_new
         continue-on-error: true
 
       - name: Check build output (docs)
@@ -94,7 +94,7 @@ jobs:
           head -n 30 docs/index.html || true
           echo "--- assets listing ---"
           ls -la docs/assets || true
-        working-directory: collapse_web
+        working-directory: collapse_web_new
 
 
       # removed debug artifact upload to clean up CI logs (keep pages artifacts)
@@ -103,12 +103,12 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           name: github-pages
-          path: collapse_web/docs
+          path: collapse_web_new/docs
 
       - name: Set docs path output
         id: set-docs-path
         run: |
-          echo "docs-path=collapse_web/docs" >> "$GITHUB_OUTPUT"
+          echo "docs-path=collapse_web_new/docs" >> "$GITHUB_OUTPUT"
 
   deploy:
     runs-on: ubuntu-latest
