@@ -90,6 +90,30 @@ const GMShell: React.FC<{ onBack: () => void; children: React.ReactNode }> = ({ 
   </div>
 );
 
+const CompanionIntro: React.FC<{ eyebrow: string; title: string; description: string; helper?: string }> = ({
+  eyebrow,
+  title,
+  description,
+  helper,
+}) => (
+  <div className="page">
+    <div className="page-header">
+      <div>
+        <div className="muted" style={{ fontSize: "0.9rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+          {eyebrow}
+        </div>
+        <h1 style={{ margin: "0.15rem 0 0.35rem 0" }}>{title}</h1>
+        <p className="muted" style={{ margin: 0 }}>{description}</p>
+      </div>
+      {helper && (
+        <div className="muted text-body" style={{ maxWidth: 320, textAlign: "right" }}>
+          {helper}
+        </div>
+      )}
+    </div>
+  </div>
+);
+
 const ChudDock: React.FC<{ basePath: string }> = ({ basePath }) => {
   const [open, setOpen] = React.useState(false);
   React.useEffect(() => {
@@ -112,7 +136,7 @@ const ChudDock: React.FC<{ basePath: string }> = ({ basePath }) => {
             <div className="chud-sheet-body">
               <iframe
                 title="cHUD"
-                src={`${basePath}chud/`}
+                src={`${basePath}chud/index.html`}
                 allow="fullscreen"
                 sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-pointer-lock"
               />
@@ -193,16 +217,16 @@ const HubLanding: React.FC<{
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <span style={{ color: "var(--muted)", fontSize: "0.9rem" }}>Mode:</span>
             <button
+              className={`mode-toggle ${mode === "player" ? "active" : ""}`}
               onClick={() => onModeChange("player")}
               aria-pressed={mode === "player"}
-              style={{ fontWeight: mode === "player" ? 700 : 500 }}
             >
               Player
             </button>
             <button
+              className={`mode-toggle ${mode === "gm" ? "active" : ""}`}
               onClick={() => onModeChange("gm")}
               aria-pressed={mode === "gm"}
-              style={{ fontWeight: mode === "gm" ? 700 : 500 }}
             >
               GM
             </button>
@@ -257,7 +281,16 @@ export default function App() {
     const syncRoute = () => {
       const nextRoute = deriveRoute();
       setRoute(nextRoute);
-      setMode(nextRoute === "gm" || nextRoute === "gm-ops" ? "gm" : "player");
+      if (nextRoute === "gm" || nextRoute === "gm-ops") {
+        setMode("gm");
+      } else if (nextRoute === "player" || nextRoute === "player-ops") {
+        setMode("player");
+      } else {
+        const stored = (typeof window !== "undefined"
+          ? (window.localStorage.getItem(MODE_KEY) as Mode | null)
+          : null);
+        if (stored) setMode(stored);
+      }
     };
     syncRoute();
     window.addEventListener("hashchange", syncRoute);
@@ -307,7 +340,14 @@ export default function App() {
     return (
       <PlayerShell onBack={() => setRoute("hub")}>
         {chudDock}
-        <DeckBuilder />
+        <DeckBuilder
+          showOpsSections={false}
+          showModifierCards={true}
+          showModifierCardCounter={false}
+          showModifierCapacity={true}
+          showBaseCounters={true}
+          showBaseAdjusters={false}
+        />
       </PlayerShell>
     );
   }
@@ -316,7 +356,11 @@ export default function App() {
     return (
       <PlayerShell onBack={() => setRoute("hub")}>
         {chudDock}
-        <DeckBuilder storageKey="collapse.deck-builder.v2" showBuilderSections={false} autoOpenDock />
+        <DeckBuilder
+          storageKey="collapse.deck-builder.v2"
+          showBuilderSections={false}
+          showOpsSections={true}
+        />
       </PlayerShell>
     );
   }
@@ -324,6 +368,12 @@ export default function App() {
   if (route === "gm") {
     return (
       <GMShell onBack={() => setRoute("hub")}>
+        <CompanionIntro
+          eyebrow="GM Companion"
+          title="GM Deck & Table Tools"
+          description="Pure-count GM deck controls with offline storage, separate from player data."
+          helper="Use this to prep encounters, lock decks, and keep the GM pool isolated."
+        />
         <DeckBuilder
           storageKey="collapse.deck-builder.gm.v1"
           exportPrefix="collapse-gm-deck"
@@ -336,6 +386,9 @@ export default function App() {
           showCardDetails={false}
           simpleCounters={true}
           modCapacityAsCount={true}
+          showOpsSections={false}
+          showModifierCards={true}
+          showModifierCapacity={false}
         />
       </GMShell>
     );
@@ -344,6 +397,12 @@ export default function App() {
   if (route === "gm-ops") {
     return (
       <GMShell onBack={() => setRoute("hub")}>
+        <CompanionIntro
+          eyebrow="GM Deck Ops"
+          title="Operational View"
+          description="Minimal deck operations for live sessions, keeping the GM pool locked and quick to reach."
+          helper="Builder sections stay hidden; use the dock to draw, shuffle, and manage discard."
+        />
         <DeckBuilder
           storageKey="collapse.deck-builder.gm.v1"
           exportPrefix="collapse-gm-deck"
@@ -357,7 +416,7 @@ export default function App() {
           simpleCounters={true}
           modCapacityAsCount={true}
           showBuilderSections={false}
-          autoOpenDock
+          showOpsSections={true}
         />
       </GMShell>
     );
@@ -367,7 +426,7 @@ export default function App() {
     return (
       <SubAppFrame
         title="cHUD — Compact HUD"
-        src={buildPath("chud/")}
+        src={`${buildPath("")}chud/index.html`}
         onBack={() => setRoute("hub")}
         note="Loaded inside the fullbuild shell."
       />
@@ -378,7 +437,7 @@ export default function App() {
     return (
       <SubAppFrame
         title="CS Matrix"
-        src={buildPath("csmatrix/")}
+        src={buildPath("csmatrix/index.html")}
         onBack={() => setRoute("hub")}
         note="Campaign Support Matrix (in-app iframe)."
       />

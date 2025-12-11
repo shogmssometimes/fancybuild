@@ -39,6 +39,18 @@ const sanitizeHexColor = (value) => {
 	return null;
 };
 const getColorOrDefault = (value) => sanitizeHexColor(value) || DEFAULT_NODE_COLOR;
+const addAlpha = (hex, alpha) => {
+	const norm = sanitizeHexColor(hex);
+	if (!norm) return null;
+	// alpha as two hex chars (e.g., 'cc' for ~80%)
+	return `${norm}${alpha}`;
+};
+const applySliderColors = (card, color) => {
+	const strong = addAlpha(color, 'cc') || 'rgba(240,118,75,0.8)';
+	const weak = addAlpha(color, '59') || 'rgba(240,118,75,0.35)';
+	card.style.setProperty('--slider-color-strong', strong);
+	card.style.setProperty('--slider-color-weak', weak);
+};
 
 let globalMeters = { collapse: 0, influence: 0, record: 0 };
 // ensure graph has the global meters for initial rendering
@@ -352,6 +364,7 @@ function updateNodeList() {
 		const header = document.createElement('div'); header.className = 'node-card-head';
 		const colorValue = getColorOrDefault(n.color);
 		n.color = colorValue;
+		applySliderColors(card, colorValue);
 		const sw = document.createElement('div'); sw.className = 'node-swatch'; sw.style.backgroundColor = colorValue; header.appendChild(sw);
 		const meta = document.createElement('div'); meta.className = 'node-meta';
 		const title = document.createElement('div'); title.textContent = n.name || '(no name)'; title.className = 'node-name'; meta.appendChild(title);
@@ -361,11 +374,10 @@ function updateNodeList() {
 		del.addEventListener('click', (ev) => { ev.stopPropagation(); console.log('delete button clicked for', n.id); if (confirm(`Delete node '${n.name || n.id}'?`)) { graph.removeNode(n.id); try { persistGraph(); } catch (e) {} updateNodeList(); } });
 		header.appendChild(del);
 		card.appendChild(header);
-		const statLine = document.createElement('div'); statLine.className = 'node-stat-line'; statLine.textContent = 'Trust / Distrust + Surveillance'; card.appendChild(statLine);
+		// Removed stat line under header
 
 		// inline node panel (embedded into the card)
 		const panel = document.createElement('div'); panel.className = 'node-panel-inline panel';
-		const heading = document.createElement('h4'); heading.textContent = 'Node'; panel.appendChild(heading);
 		// Name field
 		const nameLabel = document.createElement('label'); nameLabel.textContent = 'Name: '; const nameInput = document.createElement('input'); nameInput.value = n.name || ''; nameLabel.appendChild(nameInput); panel.appendChild(nameLabel);
 		stopNodeCardPropagation(nameInput);
@@ -388,6 +400,28 @@ function updateNodeList() {
 		colorLabel.appendChild(colorInput);
 		panel.appendChild(colorLabel);
 		stopNodeCardPropagation(colorInput);
+		// Quick palette
+		const palette = document.createElement('div');
+		palette.className = 'color-palette';
+		const paletteColors = ['#f0764b','#7b78ff','#56ffc9','#ffd760','#ff6fa5','#6fc3ff','#9df06b','#f0b26b','#c8a5ff','#ff9455','#55ffd1','#ff4d4d','#4dd0ff'];
+		const applyColor = (val) => {
+			const normalizedColor = getColorOrDefault(val);
+			n.color = normalizedColor;
+			colorInput.value = normalizedColor;
+			sw.style.backgroundColor = normalizedColor;
+			applySliderColors(card, normalizedColor);
+			graph.render();
+		};
+		paletteColors.forEach((hex) => {
+			const swatch = document.createElement('button');
+			swatch.type = 'button';
+			swatch.className = 'color-swatch';
+			swatch.style.backgroundColor = hex;
+			swatch.setAttribute('aria-label', `Set color ${hex}`);
+			swatch.addEventListener('click', (ev) => { ev.stopPropagation(); applyColor(hex); });
+			palette.appendChild(swatch);
+		});
+		panel.appendChild(palette);
 		// Actions
 		const actions = document.createElement('div'); actions.className = 'panel-actions'; const saveBtn = document.createElement('button'); saveBtn.textContent = 'Save'; const cancelBtn = document.createElement('button'); cancelBtn.textContent = 'Cancel'; actions.appendChild(saveBtn); actions.appendChild(cancelBtn); panel.appendChild(actions);
 		// Save & cancel logic
@@ -403,6 +437,7 @@ function updateNodeList() {
 			n.color = normalizedColor;
 			colorInput.value = normalizedColor;
 			sw.style.backgroundColor = normalizedColor;
+			applySliderColors(card, normalizedColor);
 			coords.textContent = `x: ${n.gx} y: ${n.gy}`;
 			try { persistGraph(); } catch(e) {}
 			graph.render();
@@ -418,6 +453,7 @@ function updateNodeList() {
 			const normalizedColor = getColorOrDefault(n.color);
 			colorInput.value = normalizedColor;
 			sw.style.backgroundColor = normalizedColor;
+			applySliderColors(card, normalizedColor);
 		});
 		// live input handlers
 		xInput.addEventListener('input', (ev) => { xSpan.textContent = ev.target.value; const gx = parseInt(ev.target.value,10); if (!Number.isNaN(gx)) { n.gx = Math.max(-6, Math.min(6, gx)); coords.textContent = `x: ${n.gx} y: ${n.gy}`; graph.render(); } });
@@ -427,11 +463,19 @@ function updateNodeList() {
 			ev.target.value = normalizedColor;
 			n.color = normalizedColor;
 			sw.style.backgroundColor = normalizedColor;
+			applySliderColors(card, normalizedColor);
 			graph.render();
 		});
-		// select on click - selecting will re-render the list and show panel for selected node
-		card.addEventListener('click', () => { graph.selectNode(n); });
-		card.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); graph.selectNode(n); } });
+		// select on click - toggle open/close panel on repeated click
+		const toggleSelect = () => {
+			if (graph.selected.node && graph.selected.node.id === n.id) {
+				graph.clearSelection();
+			} else {
+				graph.selectNode(n);
+			}
+		};
+		card.addEventListener('click', toggleSelect);
+		card.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggleSelect(); } });
 		// show/hide panel depending on selection
 		if (graph.selected.node && graph.selected.node.id === n.id) { card.classList.add('selected'); panel.style.display = 'block'; } else { panel.style.display = 'none'; }
 		card.appendChild(panel);

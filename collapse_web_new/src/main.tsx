@@ -15,7 +15,8 @@ ReactDOM.createRoot(rootElement).render(
   </React.StrictMode>
 );
 
-if ('serviceWorker' in navigator) {
+// Avoid service worker interference during development; only register in production builds.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     const swPath = `${import.meta.env.BASE_URL}sw.js`;
     navigator.serviceWorker.register(swPath).catch((error) => {

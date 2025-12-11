@@ -71,6 +71,10 @@ export default function GMApp() {
           showCardDetails={false}
           simpleCounters={true}
           modCapacityAsCount={true}
+          showOpsSections={false}
+          showModifierCards={true}
+          showModifierCapacity={false}
+          showBaseCounters={true}
         />
       </section>
     </GMShell>

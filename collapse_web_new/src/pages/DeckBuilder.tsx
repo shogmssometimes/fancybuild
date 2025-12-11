@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState, useCallback} from 'react'
+import React, {useEffect, useMemo, useState, useCallback, useRef} from 'react'
 import ImportExportJSON from '../components/ImportExportJSON'
 import { startPlaySelection, toggleAttach, finalizeSelection, cancelSelection, ActivePlay } from '../utils/playFlow'
 import { getModCapacityUsed, canAddModCardFrom } from '../utils/modCapacity'
@@ -60,6 +60,8 @@ const defaultState = (baseCards: Card[], modCards: Card[], minNulls: number, def
   modCounts: buildInitialCounts(modCards),
   nullCount: minNulls,
   modifierCapacity: defaultModCapacity,
+  hasBuiltDeck: false,
+  hasShuffledDeck: false,
   deck: [],
   hand: [],
   discard: [],
@@ -80,6 +82,8 @@ const loadState = (baseCards: Card[], modCards: Card[], storageKey: string, minN
       modCounts: { ...buildInitialCounts(modCards), ...parsed.modCounts },
       nullCount: Math.max(parsed.nullCount ?? minNulls, minNulls),
       modifierCapacity: parsed.modifierCapacity ?? defaultModCapacity,
+      hasBuiltDeck: parsed.hasBuiltDeck ?? false,
+      hasShuffledDeck: parsed.hasShuffledDeck ?? false,
       deck: parsed.deck ?? [],
       hand: parsed.hand ?? [],
       discard: parsed.discard ?? [],
@@ -172,10 +176,12 @@ export default function DeckBuilder({
   const [deckSeed, setDeckSeed] = useState(0)
   const [activePlay, setActivePlay] = useState<ActivePlay>(null)
   const compactView = false
+  const [attachWarningId, setAttachWarningId] = useState<string | null>(null)
   const [hasBuiltDeck, setHasBuiltDeck] = useState(initialState.hasBuiltDeck ?? false)
   const [hasShuffledDeck, setHasShuffledDeck] = useState(initialState.hasShuffledDeck ?? false)
   const [opsError, setOpsError] = useState<string | null>(null)
-  const [handFocusIdx, setHandFocusIdx] = useState<number | null>(null)
+  const handListRef = useRef<HTMLDivElement | null>(null)
+  const [handNavState, setHandNavState] = useState({ left: false, right: false })
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -608,66 +614,111 @@ export default function DeckBuilder({
 
   const groupedHandStacks = useMemo(() => {
     const handList = builderState.hand ?? []
-
-    return handList.map((entry, idx) => {
+    return handList.map((entry, index) => {
       const id = entry.id
       const card = getCard(id)
-      const lowerType = (card?.type ?? '').toLowerCase()
-      const isNullCard = (nullId && id === nullId) || lowerType === 'null'
-      const isMod = modIdSet.has(id) && !isNullCard
-      const isBase = baseIdSet.has(id) || (!isMod && !isNullCard)
-      const typeLabel = isNullCard ? 'Null' : (isMod ? 'Modifier' : 'Base')
-      const isQueuedModifier = isMod && !!activePlay?.mods?.includes(id)
-      const isSelectedBase = isBase && activePlay?.baseId === id
-      const canSelectBase = isBase && !isNullCard
-      const canAttach = isMod && !!activePlay?.baseId
-      let modText = ''
+      const typeLabel = card?.type ?? 'Base'
+      const isBase = typeLabel.toLowerCase() === 'base'
+      const isNull = (card?.type ?? '').toLowerCase() === 'null'
+      const isQueuedModifier = !isBase && !!activePlay?.mods?.includes(id)
+      const showAttachWarning = !isBase && attachWarningId === id
+      const highlight = isBase && activePlay?.baseId === id
+        ? 'Selected Base'
+        : (isQueuedModifier ? 'Queued' : null)
+      const canPlayBase = isBase && !activePlay
+      const canAttach = !isBase && !!activePlay
+      let modText: string | null = null
       let modTarget: string | null = null
+      const details = card?.details ?? []
+      if (!isBase && card?.text) {
+        const m = card.text.match(/^(.*?)(?:\s*[•·]\s*|\s+)Target:\s*(.*)$/i)
+        if (m) {
+          modText = m[1]?.trim() || null
+          modTarget = m[2]?.trim() || null
+        } else {
+          modText = card.text
+        }
+      }
+      const effectDetails = !isBase ? details.filter((d: any) => d.label?.toLowerCase() === 'effect') : []
+      const metaDetails = !isBase ? details.filter((d: any) => d.label?.toLowerCase() !== 'effect') : []
 
-      const handCount = handList.length || 1
-      const center = (handCount - 1) / 2
-      const offset = idx - center
-      const liftBase = 8
-      const liftRange = 14
-      const lift = liftBase + Math.max(0, 1 - Math.abs(offset) / Math.max(1, center || 1)) * liftRange
-
-      const cardClass = `${isBase ? 'hand-card card base-card' : 'hand-card card mod-card'}${isSelectedBase ? ' selected-base' : ''}${isQueuedModifier ? ' attached-mod' : ''}`
-      const handCardStyle = {
-        ['--hand-offset' as any]: offset,
-        ['--hand-index' as any]: idx,
-        ['--hand-count' as any]: handCount,
-        ['--hand-lift' as any]: `${lift}px`,
-      } as React.CSSProperties
+      const cardStyle: React.CSSProperties = {
+        zIndex: 100 - index,
+        flex: '0 0 230px',
+        minWidth: 198,
+        maxWidth: 242,
+        scrollSnapAlign: 'start',
+      }
+      const typeClass = isBase ? 'base-type' : isNull ? 'null-type' : 'mod-type'
 
       return (
-        <div key={`${id}-${idx}`} className={cardClass} style={handCardStyle}>
-          <div className="card-header" style={{ gap: 12 }}>
-            <div className="card-title" style={{ minWidth: 0, flex: '1 1 auto' }}>
-              <div className="card-name">{card?.name ?? id}</div>
+        <div key={`${id}-${index}`} className={`hand-card ${typeClass}`} style={cardStyle}>
+          <div className="hand-content">
+            <div className="hand-meta">
+              <div>
+                <div className="hand-title">{card?.name ?? id}</div>
+                <div className="hand-subtitle">
+                  <span className="hand-type">{typeLabel}</span>
+                  {highlight && <span className="hand-pill accent">{highlight}</span>}
+                </div>
+              </div>
             </div>
+            {!isBase && (
+              <div className="text-body card-text hand-text">
+                {showCardDetails ? (
+                  <>
+                    {effectDetails.length > 0 && (
+                      <div className="effect-block">
+                        {effectDetails.map((detail: any) => (
+                          <div key={`${card?.id ?? id}-effect-${detail.label}`} className="effect-line">
+                            {detail.value}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {metaDetails.length > 0 && (
+                      <dl className="meta-block">
+                        {metaDetails.map((detail: any) => (
+                          <React.Fragment key={`${card?.id ?? id}-meta-${detail.label}`}>
+                            <dt>{detail.label}</dt>
+                            <dd>{detail.value}</dd>
+                          </React.Fragment>
+                        ))}
+                      </dl>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="effect-block">
+                      {modText && <div className="effect-line">{modText}</div>}
+                      {!modText && card?.text && <div className="effect-line">{card.text}</div>}
+                    </div>
+                    <div className="meta-block">
+                      {modTarget && <div className="target-line">Target: {modTarget}</div>}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
-          {isNullCard && <div className="hand-hint">Null cards can only be discarded.</div>}
-          {!canAttach && isMod && !activePlay && <div className="hand-hint">Select a base before attaching modifiers.</div>}
-          {isMod && renderDetails(card ?? { id, name: id, type: typeLabel, cost: card?.cost ?? 0, text: '' as any })}
-          <div className="hand-actions hand-actions-inline">
-            <div className="hand-actions-right">
-              {canSelectBase && (
-                <button onClick={() => startPlayBase(id)} disabled={isSelectedBase}>
-                  {isSelectedBase ? 'Selected' : 'Play Base'}
-                </button>
-              )}
-              {isMod && (
-                <button className="primary-btn" onClick={() => attachModifier(id)} disabled={!canAttach}>
-                  {isQueuedModifier ? 'Detach' : 'Attach Mod'}
-                </button>
-              )}
-              <button onClick={() => discardGroupFromHand(id, false, 'discarded')}>Discard</button>
+          <div className="hand-actions">
+            {isBase ? (
+              <button onClick={() => startPlayBase(id)} disabled={!canPlayBase}>Play Base</button>
+            ) : (
+              <button onClick={() => attachModifier(id)} disabled={false}>Attach</button>
+            )}
+            <button onClick={() => discardGroupFromHand(id, false, 'discarded')}>Discard</button>
+          </div>
+          {showAttachWarning && (
+            <div className="hand-warning-overlay" role="status">
+              <div className="hand-warning-text">Select a base before attaching modifiers.</div>
+              <button className="hand-warning-dismiss" onClick={() => setAttachWarningId(null)} aria-label="Dismiss warning">Got it</button>
             </div>
-          </div>
+          )}
         </div>
       )
     })
-  }, [builderState.hand, activePlay, getCard, baseIdSet, modIdSet, nullId])
+  }, [activePlay, builderState.hand, getCard, renderDetails, showCardDetails])
 
   // Move grouped items from hand to discard (single or all)
   function discardGroupFromHand(cardId: string, all = false, origin: 'played' | 'discarded' = 'discarded') {
@@ -699,6 +750,7 @@ export default function DeckBuilder({
       return
     }
     setOpsError(null)
+    setAttachWarningId(null)
     setActivePlay((prev) => startPlaySelection(prev, cardId))
   }
 
@@ -709,6 +761,7 @@ export default function DeckBuilder({
     }
     if (!activePlay?.baseId) {
       setOpsError('Select a base before attaching modifiers.')
+      setAttachWarningId(cardId)
       return
     }
     if (!modIdSet.has(cardId)) return
@@ -718,6 +771,7 @@ export default function DeckBuilder({
     }, {})
     const cardCosts = Array.from(cardLookup.values()).reduce<Record<string, number>>((acc, c) => { acc[c.id] = c.cost ?? 0; return acc }, {})
     setOpsError(null)
+    setAttachWarningId(null)
     setActivePlay((prev) => toggleAttach(prev, cardId, handCounts, cardCosts, builderState.modifierCapacity))
   }
 
@@ -751,8 +805,46 @@ export default function DeckBuilder({
   }
 
   const handCount = (builderState.hand ?? []).length
-  const handHasSelection = !!activePlay?.baseId || (activePlay?.mods?.length ?? 0) > 0
-  const handStackClass = `hand-stack${handHasSelection ? ' hand-has-active' : ''}`
+
+  const updateHandNav = useCallback(() => {
+    const el = handListRef.current
+    if (!el) return
+    const { scrollLeft, scrollWidth, clientWidth } = el
+    setHandNavState({
+      left: scrollLeft > 4,
+      right: scrollLeft + clientWidth < scrollWidth - 4,
+    })
+  }, [])
+
+  const scrollHand = useCallback((direction: -1 | 1) => {
+    const el = handListRef.current
+    if (!el) return
+    const amount = Math.max(el.clientWidth * 0.9, 220)
+    el.scrollBy({ left: direction * amount, behavior: 'smooth' })
+    window.setTimeout(updateHandNav, 220)
+  }, [updateHandNav])
+
+  useEffect(() => {
+    updateHandNav()
+  }, [groupedHandStacks.length, updateHandNav])
+
+  useEffect(() => {
+    const onResize = () => updateHandNav()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [updateHandNav])
+
+  const handFanStyle: React.CSSProperties = {
+    marginTop: 10,
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 12,
+    padding: '10px 8px 14px',
+    overflowX: 'auto',
+    scrollSnapType: 'x mandatory',
+    WebkitOverflowScrolling: 'touch',
+  }
 
   return (
     <main className="app-shell">
@@ -762,7 +854,6 @@ export default function DeckBuilder({
           <div className="page-header">
             <div>
               <h1>Engram Deck Builder</h1>
-              <p className="muted">Assemble decks with your chosen cards. Decks require {baseTarget} base cards, at least {minNulls} Nulls, and staying within modifier capacity.</p>
               <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
                 <ImportExportJSON filenamePrefix={exportPrefix} />
               </div>
@@ -930,11 +1021,37 @@ export default function DeckBuilder({
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <section className="card-grid base-card-grid">
               <div style={{ marginBottom: 12 }}>
-                <div
-                  className={handStackClass}
-                  style={{ marginTop: 10, ['--hand-count' as any]: handCount } as React.CSSProperties}
-                >
-                  {groupedHandStacks.length > 0 ? groupedHandStacks : <div className="muted">No cards in hand</div>}
+                <div className="hand-carousel">
+                  <div
+                    className="hand-track"
+                    style={handFanStyle}
+                    ref={handListRef}
+                    onScroll={updateHandNav}
+                  >
+                    {groupedHandStacks.length > 0 ? groupedHandStacks : <div className="muted">No cards in hand</div>}
+                  </div>
+                  {(handNavState.left || handNavState.right) && (
+                    <div className="hand-nav" aria-hidden="true">
+                      <button
+                        className="hand-nav-btn"
+                        onClick={() => scrollHand(-1)}
+                        disabled={!handNavState.left}
+                        aria-label="Scroll hand left"
+                        type="button"
+                      >
+                        ‹
+                      </button>
+                      <button
+                        className="hand-nav-btn"
+                        onClick={() => scrollHand(1)}
+                        disabled={!handNavState.right}
+                        aria-label="Scroll hand right"
+                        type="button"
+                      >
+                        ›
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="text-body hand-count-row" style={{ marginTop: 8 }}>
                   Hand: <strong>{(builderState.hand ?? []).length}</strong> / {builderState.handLimit ?? DEFAULT_HAND_LIMIT}
@@ -986,7 +1103,6 @@ export default function DeckBuilder({
                     {builderState.isLocked ? 'Unlock Deck' : 'Lock Deck'}
                   </button>
                 </div>
-                <p className="muted" style={{ marginTop: 0 }}>Shuffle, draw, and discard cards from your deck. Draw uses the top-of-deck (LIFO) model.</p>
                 <div className="ops-toolbar">
                   <button
                     className={builderState.isLocked && !hasBuiltDeck ? 'cta-pulse' : undefined}
@@ -1031,17 +1147,7 @@ export default function DeckBuilder({
                     </div>
                   </div>
                   <div style={{ marginTop: 8 }}>
-                    <div style={{ fontWeight: 600 }}>Saved Decks</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
-                      {Object.keys(builderState.savedDecks ?? {}).length === 0 && <div className="muted">No saved decks</div>}
-                      {Object.entries(builderState.savedDecks ?? {}).map(([k, v]) => (
-                        <div key={k} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <div style={{ minWidth: 160 }}>{v.name}</div>
-                          <button onClick={() => loadSavedDeck(k)}>Load</button>
-                          <button onClick={() => deleteSavedDeck(k)}>Delete</button>
-                        </div>
-                      ))}
-                    </div>
+                    {/* Saved decks section removed */}
                   </div>
                 </div>
               </div>

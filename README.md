@@ -1,24 +1,21 @@
-# fullbuild
+# fancybuild (isolated copy)
 
-Combined PWA bundle that ships the three Collapse web builds together:
-
-- Collapse Companion (`#/cvttweb` inside the React shell)
-- cHUD (`/chud/`)
-- CS Matrix (`/csmatrix/`)
+Isolated bundle of the Collapse web app served under `/fancybuild/`. Fancybuild-specific scripts now live only in this copy; the main `collapse_web` package no longer carries fancybuild commands.
 
 ## Development
 
 ```bash
-cd collapse_web
+cd collapse_web_new
 npm install
-npm run dev
+npm run dev             # or npm run dev:fancybuild
 ```
 
 ## Build & Deploy
 
 ```bash
-cd collapse_web
-npm run build            # outputs to docs/ with base /fullbuild/
+cd collapse_web_new
+npm run build           # or npm run build:fancybuild
+# Output: docs/ (base already set to /fancybuild/)
 ```
 
-GitHub Pages deploy is configured via `.github/workflows/deploy-gh-pages.yml` and serves the `docs/` folder. The service worker caches entry points for all three experiences so they keep working offline once loaded.
+If you publish this to GitHub Pages, point it at `docs/` from this folder.

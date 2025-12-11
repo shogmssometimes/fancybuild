@@ -1,0 +1,57 @@
+const groupedHandStacks = useMemo(() => {
+    const handList = builderState.hand ?? []
+    const counts = handList.reduce<Record<string, number>>((acc, h) => {
+      acc[h.id] = (acc[h.id] ?? 0) + 1
+      return acc
+    }, {})
+
+    return handList.map((entry, idx) => {
+      const id = entry.id
+      const card = getCard(id)
+      const lowerType = (card?.type ?? '').toLowerCase()
+      const isNullCard = (nullId && id === nullId) || lowerType === 'null'
+      const isMod = modIdSet.has(id) && !isNullCard
+      const isBase = baseIdSet.has(id) || (!isMod && !isNullCard)
+      const typeLabel = isNullCard ? 'Null' : (isMod ? 'Modifier' : 'Base')
+      const isQueuedModifier = isMod && !!activePlay?.mods?.includes(id)
+      const isSelectedBase = isBase && activePlay?.baseId === id
+      const highlight = null
+      const canSelectBase = isBase && !isNullCard
+      const canAttach = isMod && !!activePlay?.baseId
+      let modText = ''
+      let modTarget: string | null = null
+
+      const cardClass = `${isBase ? 'hand-card card base-card' : 'hand-card card mod-card'}${isSelectedBase ? ' selected-base' : ''}${isQueuedModifier ? ' attached-mod' : ''}`
+
+      return (
+        <div key={`${id}-${idx}`} className={cardClass}>
+          <div className="card-header" style={{ gap: 12 }}>
+            <div className="card-title" style={{ minWidth: 0, flex: '1 1 auto' }}>
+              <div className="card-name">{card?.name ?? id}</div>
+              {highlight && <div className="hand-subtitle"><span className="hand-pill accent">{highlight}</span></div>}
+            </div>
+          </div>
+          {isNullCard && <div className="hand-hint">Null cards can only be discarded.</div>}
+          {!canAttach && isMod && !activePlay && <div className="hand-hint">Select a base before attaching modifiers.</div>}
+          {isMod && renderDetails(card ?? { id, name: id, type: typeLabel, cost: card?.cost ?? 0, text: '' as any })}
+          <div className="hand-actions">
+            <div className="hand-actions-left">
+              {canSelectBase && (
+                <button onClick={() => startPlayBase(id)} disabled={isSelectedBase}>
+                  {isSelectedBase ? 'Selected' : 'Play Base'}
+                </button>
+              )}
+              {isMod && (
+                <button className="primary-btn" onClick={() => attachModifier(id)} disabled={!canAttach}>
+                  {isQueuedModifier ? 'Detach' : 'Attach Mod'}
+                </button>
+              )}
+            </div>
+            <div className="hand-actions-right">
+              <button onClick={() => discardGroupFromHand(id, false, 'discarded')}>Discard</button>
+            </div>
+          </div>
+        </div>
+      )
+    })
+  
