@@ -25,6 +25,10 @@
     <!-- HUD toggle moved into the canvas wrapper so it doesn't appear near meters -->
   </header>
   <main>
+    <div class="action-bar">
+      <button id="btn-toggle-controls" class="floating-toggle controls-toggle" aria-expanded="false">Show Controls</button>
+      <button id="btn-toggle-nodes" class="floating-toggle nodes-toggle" aria-expanded="false">Show Nodes</button>
+    </div>
     <section id="matrix">
       <!-- maximize button removed -->
       <div id="matrix-canvas-wrap">
@@ -34,8 +38,6 @@
         <div class="quadrant-label quadrant-bottom-left"><span>Asset</span></div>
         <div class="quadrant-label quadrant-bottom-right"><span>Useful</span><span>Ghost</span></div>
         <!-- HUD and posture toggle buttons removed per request -->
-        <button id="btn-toggle-controls" class="floating-toggle controls-toggle" aria-expanded="false">Show Controls</button>
-        <button id="btn-toggle-nodes" class="floating-toggle nodes-toggle" aria-expanded="false">Show Nodes</button>
         <!-- Node panel is embedded per-card in the node drawer; overlay removed -->
       </div>
     </section>

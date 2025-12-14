@@ -371,7 +371,7 @@ function updateNodeList() {
 		const coords = document.createElement('div'); coords.textContent = `x: ${n.gx} y: ${n.gy}`; coords.className = 'node-coords'; meta.appendChild(coords);
 		header.appendChild(meta);
 		const del = document.createElement('button'); del.className = 'delete-node'; del.textContent = 'Delete'; del.setAttribute('aria-label', `Delete ${n.name || 'node'}`);
-		del.addEventListener('click', (ev) => { ev.stopPropagation(); console.log('delete button clicked for', n.id); if (confirm(`Delete node '${n.name || n.id}'?`)) { graph.removeNode(n.id); try { persistGraph(); } catch (e) {} updateNodeList(); } });
+		del.addEventListener('click', (ev) => { ev.stopPropagation(); console.log('delete button clicked for', n.id); graph.removeNode(n.id); try { persistGraph(); } catch (e) {} updateNodeList(); });
 		header.appendChild(del);
 		card.appendChild(header);
 		// Removed stat line under header
@@ -512,3 +512,4 @@ try { loadSample(); } catch (err) { console.error('csmatrix: loadSample failed',
 	// ensure axis pills have default aria state
 	document.querySelectorAll('.axis-pill').forEach(el => el.setAttribute('aria-hidden', 'false'));
 }
+/* meters always visible; toggle removed */

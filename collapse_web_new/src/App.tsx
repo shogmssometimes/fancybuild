@@ -60,7 +60,11 @@ const SubAppFrame: React.FC<{ title: string; src: string; onBack: () => void; no
   </main>
 );
 
-const PlayerShell: React.FC<{ onBack: () => void; children: React.ReactNode }> = ({ onBack, children }) => (
+const PlayerShell: React.FC<{ onBack: () => void; children: React.ReactNode; chudDock?: React.ReactNode }> = ({ onBack, children, chudDock }) => {
+  const openChud = () => {
+    if (typeof window !== "undefined") window.dispatchEvent(new Event("chud-open"));
+  };
+  return (
   <div className="player-shell" style={{ minHeight: "100vh", background: "var(--bg-dark)" }}>
     <header className="topbar">
       <button className="ghost-btn" onClick={onBack} aria-label="Back to hub">
@@ -70,12 +74,21 @@ const PlayerShell: React.FC<{ onBack: () => void; children: React.ReactNode }> =
         <div className="muted" style={{ fontSize: "0.85rem" }}>Collapse Full Build</div>
         <strong>Collapse Companion</strong>
       </div>
+      <div className="topbar-actions">
+        <button className="chud-top-btn" onClick={openChud} aria-label="Open cHUD overlay">cHUD</button>
+      </div>
     </header>
+    {chudDock}
     {children}
   </div>
-);
+  );
+};
 
-const GMShell: React.FC<{ onBack: () => void; children: React.ReactNode }> = ({ onBack, children }) => (
+const GMShell: React.FC<{ onBack: () => void; children: React.ReactNode; chudDock?: React.ReactNode }> = ({ onBack, children, chudDock }) => {
+  const openChud = () => {
+    if (typeof window !== "undefined") window.dispatchEvent(new Event("chud-open"));
+  };
+  return (
   <div className="gm-shell" style={{ minHeight: "100vh", background: "var(--bg-dark)" }}>
     <header className="topbar">
       <button className="ghost-btn" onClick={onBack} aria-label="Back to hub">
@@ -85,10 +98,15 @@ const GMShell: React.FC<{ onBack: () => void; children: React.ReactNode }> = ({ 
         <div className="muted" style={{ fontSize: "0.85rem" }}>Collapse GM Companion</div>
         <strong>GM Tools</strong>
       </div>
+      <div className="topbar-actions">
+        <button className="chud-top-btn" onClick={openChud} aria-label="Open cHUD overlay">cHUD</button>
+      </div>
     </header>
+    {chudDock}
     {children}
   </div>
-);
+  );
+};
 
 const CompanionIntro: React.FC<{ eyebrow: string; title: string; description: string; helper?: string }> = ({
   eyebrow,
@@ -338,8 +356,7 @@ export default function App() {
 
   if (route === "player") {
     return (
-      <PlayerShell onBack={() => setRoute("hub")}>
-        {chudDock}
+      <PlayerShell onBack={() => setRoute("hub")} chudDock={chudDock}>
         <DeckBuilder
           showOpsSections={false}
           showModifierCards={true}
@@ -354,8 +371,7 @@ export default function App() {
 
   if (route === "player-ops") {
     return (
-      <PlayerShell onBack={() => setRoute("hub")}>
-        {chudDock}
+      <PlayerShell onBack={() => setRoute("hub")} chudDock={chudDock}>
         <DeckBuilder
           storageKey="collapse.deck-builder.v2"
           showBuilderSections={false}
@@ -367,7 +383,7 @@ export default function App() {
 
   if (route === "gm") {
     return (
-      <GMShell onBack={() => setRoute("hub")}>
+      <GMShell onBack={() => setRoute("hub")} chudDock={chudDock}>
         <CompanionIntro
           eyebrow="GM Companion"
           title="GM Deck & Table Tools"
@@ -396,7 +412,7 @@ export default function App() {
 
   if (route === "gm-ops") {
     return (
-      <GMShell onBack={() => setRoute("hub")}>
+      <GMShell onBack={() => setRoute("hub")} chudDock={chudDock}>
         <CompanionIntro
           eyebrow="GM Deck Ops"
           title="Operational View"

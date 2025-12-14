@@ -4,11 +4,12 @@
   margin-bottom: 12px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 12px;
+  text-align: center;
 }
 @media (max-width: 840px) {
-  .page-header { flex-direction: column; align-items: flex-start; }
+  .page-header { flex-direction: column; align-items: center; text-align: center; }
 }
 
 /* Compact card: reduced paddings and less pronounced border for nested/summary sections */
@@ -142,6 +143,22 @@ button:hover {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+.topbar-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.chud-top-btn {
+  border: none;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(86,141,255,0.9), rgba(86,255,201,0.8));
+  color: #0b0d12;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.25);
 }
 .subapp-frame {
   flex: 1;
@@ -283,7 +300,8 @@ main {
 }
 
 .card-grid.mod-card-grid {
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+  justify-items: center;
 }
 
 /* Card-like containers */
@@ -325,6 +343,11 @@ main {
 .card.base-card .card-title {
   max-width: 100%;
   overflow: visible;
+  text-align: center;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  gap: 6px;
 }
 .card.base-card .card-title .card-controls-bottom {
   width: 100%;
@@ -332,15 +355,37 @@ main {
   gap: 8px;
 }
 .card.base-card .card-body,
-.card.mod-card .card-body {
-  align-items: center;
-  text-align: center;
-}
 .card.base-card .card-header {
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  width: 100%;
+  text-align: center;
+}
+.card.base-card .card-title {
+  text-align: center;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  width: 100%;
+}
+.card.base-card .card-name {
+  white-space: normal !important;
+  text-align: center;
+  word-break: break-word;
+  overflow: visible;
+  text-overflow: clip;
+  hyphens: auto;
+  font-size: clamp(0.72rem, 2vw, 0.9rem);
+  line-height: 1.12;
+  padding: 0;
+  width: 100%;
+}
+.card.base-card .counter-value {
+  align-self: center;
+  margin-left: 0;
+  text-align: center;
 }
 .card.base-card .card-controls {
   justify-content: center;
@@ -356,10 +401,60 @@ main {
   white-space: pre-wrap;
 }
 .card.mod-card .card-text {
-  text-align: left;
+  text-align: center;
+  overflow: visible;
+  white-space: normal;
+  max-width: none;
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+.card.mod-card .card-details {
+  grid-template-columns: 1fr;
+  row-gap: 8px;
+  width: 100%;
+}
+.card.mod-card .card-details dt,
+.card.mod-card .card-details dd {
+  grid-column: 1;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  width: 100%;
+}
+.card.mod-card .card-name,
+.card.mod-card .card-title,
+.card.mod-card .card-body {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  flex: 1 1 auto;
+}
+
+.card.mod-card .counter-pill {
+  margin-left: auto;
 }
 .card.mod-card .target-line {
   margin-top: 2px;
+}
+
+.summary-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  max-width: 420px;
+  margin: 0 auto;
+  text-align: center;
+}
+.summary-stack > div {
+  width: 100%;
+}
+.summary-stack .counter-inline {
+  justify-content: center;
+}
+.summary-stack .status-warning,
+.summary-stack .status-error {
+  text-align: center;
 }
 
 .play-overlay {
@@ -407,7 +502,7 @@ main {
   align-items: center;
   flex: 0 0 auto;
 }
-.counter-btn { width: var(--counter-size); height: var(--counter-size); padding: 0; font-size: 0.9rem; }
+.counter-btn { width: calc(var(--counter-size) * 1.2); height: calc(var(--counter-size) * 1.2); padding: 0; font-size: 1.08rem; }
 .counter-value {
   min-width: 20px;
   text-align: center;
@@ -432,16 +527,36 @@ main {
   font-weight: 600;
 }
 
-.hand-carousel { position: relative; }
+.hand-carousel {
+  position: relative;
+  /* Wider rail so the first/last cards peek past the visible area without clipping */
+  --hand-bleed: clamp(32px, 8vw, 64px);
+  --hand-pad-inline: clamp(22px, 6vw, 36px);
+  --hand-pad-block-start: 12px;
+  --hand-pad-block-end: 18px;
+  width: 100vw;
+  max-width: none;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  padding: 0;
+  overflow: visible; /* allow the peek */
+}
 
 .hand-track {
   display: flex;
   align-items: flex-end;
   gap: 12px;
-  padding: 10px 6px 14px;
+  box-sizing: border-box;
+  width: calc(100vw + (var(--hand-bleed) * 2));
+  min-width: calc(100vw + (var(--hand-bleed) * 2));
+  margin-left: calc(-1 * var(--hand-bleed));
+  margin-right: calc(-1 * var(--hand-bleed));
+  padding: var(--hand-pad-block-start) calc(var(--hand-pad-inline) + var(--hand-bleed)) var(--hand-pad-block-end);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scroll-snap-type: x mandatory;
+  scroll-padding-left: calc(var(--hand-pad-inline) + var(--hand-bleed) + 8px);
+  scroll-padding-right: calc(var(--hand-pad-inline) + var(--hand-bleed) + 8px);
 }
 .hand-track::-webkit-scrollbar { height: 8px; }
 .hand-track::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 999px; }
@@ -616,6 +731,29 @@ main {
   display: flex;
   flex-direction: column;
 }
+.card.mod-card {
+  width: 215px;
+  min-width: 215px;
+  max-width: 215px;
+  min-height: 281px;
+  height: auto;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+.card.mod-card > div > div:first-child {
+  max-width: 100%;
+}
+.card.mod-card .card-title,
+.card.mod-card .card-name,
+.card.mod-card .card-body,
+.card.mod-card .card-details,
+.card.mod-card .card-text,
+.card.mod-card .card-details dt,
+.card.mod-card .card-details dd {
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: normal;
+}
 .card-controls-bottom {
   justify-content: center;
   margin-top: auto;
@@ -631,12 +769,13 @@ main {
 .card-grid.base-card-grid .card > div > div:last-child { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
 .card-grid.base-card-grid .card > div > div:last-child button { min-width: 28px; width: 28px; height: 28px; padding: 0; box-sizing: border-box; }
 .card-grid.base-card-grid .card > div > div:last-child button svg, .card-grid.base-card-grid .card > div > div:last-child button span { display:block; width:100%; height:100%; }
+.card-grid.base-card-grid .card { min-height: 84px; }
 
 
 /* Selected / highlight state */
 .card.is-selected { border-color: #7b78ff; box-shadow: none; }
 /* Class-based sizing and padding rules for base and mod cards */
-.card.base-card { padding: calc(var(--gap-1) + 2px) calc(var(--gap-2)); border-radius: 8px; }
+.card.base-card { padding: calc(var(--gap-1) + 2px) calc(var(--gap-2)); border-radius: 8px; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
 .card.mod-card { padding: calc(var(--gap-1) + 2px); border-radius: 8px; }
 .card.small-card { padding: var(--gap-1); border-radius: 8px; }
 
@@ -699,6 +838,15 @@ main {
 /* Label column sizing: give dt a max width to prevent large left column from forcing horizontal layout */
 .card dl dt { max-width: 120px; min-width: 56px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card dl dd { max-width: calc(100% - 140px); overflow: hidden; text-overflow: ellipsis; }
+
+.card.mod-card .card-details dt,
+.card.mod-card .card-details dd {
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+  overflow: visible;
+  text-overflow: clip;
+}
 
 /* Tighter label widths for base cards to reduce content wrap */
 .card-grid.base-card-grid .card .card-details dt { max-width: 18%; min-width: 60px; }
@@ -835,8 +983,8 @@ main {
 /* Ensure base card horizontal padding prevents edge touching on various phones */
 @media (max-width: 1080px) {
   .card-grid.base-card-grid .card {
-    padding-left: clamp(12px, 4vw, 18px) !important;
-    padding-right: clamp(12px, 4vw, 18px) !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
   }
   /* Force label column restraint for base cards (override broader rules) */
   .card-grid.base-card-grid .card .card-details dt { max-width: 18% !important; min-width: 56px; }
@@ -910,14 +1058,15 @@ code {
 .card:active {
   transform: translateY(0) scale(0.99);
 }
-.card.base-card .card-header {
-  background: linear-gradient(90deg, rgba(123, 196, 255, 0.12), transparent 60%);
-}
+.card.base-card .card-header { background: none; }
 .card.base-card {
   box-shadow:
-    0 12px 32px rgba(64, 139, 255, 0.30),
-    0 0 30px rgba(64, 139, 255, 0.28),
-    0 0 0 1px rgba(92, 169, 255, 0.35);
+    0 0 28px rgba(90, 180, 255, 0.75),
+    0 12px 30px rgba(0, 0, 0, 0.38),
+    0 0 0 1px rgba(120, 190, 255, 0.75),
+    inset 0 0 0 1px rgba(120, 190, 255, 0.32);
+  border: 1px solid rgba(120, 190, 255, 0.75);
+  background: radial-gradient(circle at 40% 30%, rgba(120, 180, 255, 0.28), rgba(11, 14, 20, 0.9) 58%), #0b0e14;
 }
 .card.mod-card .card-header {
   background: linear-gradient(90deg, rgba(112, 255, 211, 0.12), transparent 60%);
@@ -928,14 +1077,78 @@ code {
     0 0 30px rgba(67, 217, 173, 0.28),
     0 0 0 1px rgba(99, 240, 200, 0.35);
   line-height: 1.24;
-  word-break: break-word;
+  word-break: normal;
+  overflow-wrap: normal;
+  width: 215px;
+  max-width: 215px;
+  min-width: 215px;
+  min-height: 281px;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 6px;
+  width: 100%;
 }
 .card.mod-card .card-details {
   grid-template-columns: 1fr;
+  row-gap: 6px;
+  margin-top: 15px;
+}
+.card.mod-card .card-details dt {
+  margin-top: 0;
+}
+.card.mod-card .card-details dt:nth-of-type(2) {
+  margin-top: 24px;
+}
+.card.mod-card .card-details dt:first-of-type + dd {
+  font-size: 1.05em;
+}
+.card.mod-card .card-text {
+  font-size: 1em;
+}
+.card.mod-card .card-details,
+.card.mod-card .card-details dt,
+.card.mod-card .card-details dd {
+  font-size: 0.9em;
+}
+.card.mod-card .card-body {
+  font-size: 1em;
+}
+.card.mod-card .card-details dd {
+  padding-left: 8px;
+  box-sizing: border-box;
+}
+.card.mod-card .card-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+.card.mod-card .card-title {
+  overflow: visible;
+  align-items: flex-start;
+  text-align: left;
+  white-space: normal;
+  width: 100%;
+}
+.card.mod-card .card-name {
+  white-space: normal !important;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+.card.mod-card .card-body {
+  flex: 1 1 auto;
+  width: 100%;
 }
 .card.mod-card .card-details dt,
 .card.mod-card .card-details dd {
   grid-column: 1;
+  white-space: normal;
+  overflow-wrap: normal;
 }
 .card .card-name {
   letter-spacing: 0.01em;
@@ -946,6 +1159,7 @@ code {
   font-weight: 700;
   animation: pulse-warning 1s ease-in-out infinite;
   text-align: right;
+  margin-top: 0;
 }
 
 @keyframes pulse-warning {
@@ -998,17 +1212,7 @@ code {
 
 /* cHUD overlay */
 .chud-fab {
-  position: fixed;
-  right: 14px;
-  bottom: 18px;
-  z-index: 50;
-  background: linear-gradient(135deg, rgba(86,141,255,0.9), rgba(86,255,201,0.8));
-  color: #0b0d12;
-  border: none;
-  padding: 12px 14px;
-  border-radius: 999px;
-  font-weight: 800;
-  box-shadow: 0 12px 24px rgba(0,0,0,0.35);
+  display: none;
 }
 .chud-overlay {
   position: fixed;
@@ -1124,4 +1328,126 @@ code {
   min-width: 36px;
   height: 32px;
   padding: 0 10px;
+}
+.hand-nav-with-count {
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.hand-count-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--type-body);
+}
+
+/* Compact discard list */
+.discard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+.discard-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.discard-name { font-weight: 600; }
+.discard-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.discard-actions .counter-btn { padding: 6px 10px; min-width: 56px; }
+.discard-count { font-weight: 700; color: var(--accent); }
+
+/* Default skill grid */
+.card-grid.base-card-grid.skill-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  justify-items: center;
+}
+
+/* Deck builder: locked 95px skill grid */
+.card-grid.base-card-grid.skill-grid.deck-builder-skill-grid {
+  grid-template-columns: repeat(3, 95px) !important;
+  grid-template-rows: repeat(5, 95px);
+  grid-auto-flow: column;
+  grid-auto-columns: 95px;
+  grid-auto-rows: 95px;
+  justify-content: center;
+  justify-items: center;
+  column-gap: 10px;
+  row-gap: 10px;
+}
+.card-grid.base-card-grid.skill-grid.deck-builder-skill-grid .card {
+  width: 95px;
+  min-width: 95px;
+  max-width: 95px;
+  height: 95px;
+  min-height: 95px;
+  max-height: 95px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 6px;
+  box-shadow:
+    0 0 28px rgba(90, 180, 255, 0.75),
+    0 12px 30px rgba(0, 0, 0, 0.38),
+    0 0 0 1px rgba(120, 190, 255, 0.75),
+    inset 0 0 0 1px rgba(120, 190, 255, 0.32);
+  border: 1px solid rgba(120, 190, 255, 0.75);
+  background: radial-gradient(circle at 40% 30%, rgba(120, 180, 255, 0.28), rgba(11, 14, 20, 0.9) 58%), #0b0e14;
+}
+.card-grid.base-card-grid.skill-grid.deck-builder-skill-grid .card .card-header {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  gap: 10px;
+  text-align: left !important;
+}
+.card-grid.base-card-grid.skill-grid.deck-builder-skill-grid .card .card-title {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+  gap: 10px;
+}
+.card-grid.base-card-grid.skill-grid.deck-builder-skill-grid .card .card-name {
+  width: 100%;
+  text-align: left !important;
+  white-space: normal;
+  word-break: break-word;
+  overflow: visible;
+  text-overflow: clip;
+  font-size: clamp(0.62rem, 1.9vw, 0.82rem);
+  line-height: 1.05;
+  padding-left: 0;
+}
+.card-grid.base-card-grid.skill-grid.deck-builder-skill-grid .card .counter-value.counter-pill {
+  width: 100% !important;
+  max-width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+  font-size: clamp(1.14rem, 2.86vw, 1.43rem);
+  padding: 10px 12px;
+  box-sizing: border-box;
+  align-self: flex-start !important;
+  margin-left: 0 !important;
+  padding-left: 0;
 }

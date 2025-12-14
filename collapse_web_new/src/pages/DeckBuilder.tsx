@@ -182,6 +182,10 @@ export default function DeckBuilder({
   const [opsError, setOpsError] = useState<string | null>(null)
   const handListRef = useRef<HTMLDivElement | null>(null)
   const [handNavState, setHandNavState] = useState({ left: false, right: false })
+  const [basePrompt, setBasePrompt] = useState<{ id: string; qty: number; name?: string } | null>(null)
+  const [modPrompt, setModPrompt] = useState<{ id: string; qty: number; name?: string } | null>(null)
+  const modLongPressTimer = useRef<number | null>(null)
+  const modLongPressFired = useRef(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -466,6 +470,40 @@ export default function DeckBuilder({
     adjustBaseCount(primaryBaseId, delta)
   }
 
+  // tap-to-add and long-press/right-click to remove (base cards)
+  const longPressTimer = useRef<number | null>(null)
+  const longPressFired = useRef(false)
+
+  const clearLongPress = () => {
+    if (longPressTimer.current) {
+      window.clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+    longPressFired.current = false
+  }
+
+  const handleBaseIncrement = (cardId: string) => {
+    if (builderState.isLocked) return
+    adjustBaseCount(cardId, 1)
+  }
+
+  const handleBaseContext = (cardId: string) => {
+    const current = builderState.baseCounts[cardId] ?? 0
+    if (builderState.isLocked || current <= 0) return
+    const cardName = getCard(cardId)?.name ?? cardId
+    setBasePrompt({ id: cardId, qty: current, name: cardName })
+  }
+
+  const closeBasePrompt = () => setBasePrompt(null)
+
+  const handleBaseRemoveAction = (removeAll: boolean) => {
+    if (!basePrompt) return
+    const currentQty = builderState.baseCounts[basePrompt.id] ?? 0
+    const delta = removeAll ? -currentQty : -1
+    if (delta !== 0) adjustBaseCount(basePrompt.id, delta)
+    closeBasePrompt()
+  }
+
   const adjustModCount = (cardId: string, delta: number) => {
     setBuilderState((prev) => {
       if (prev.isLocked) return prev
@@ -485,6 +523,28 @@ export default function DeckBuilder({
   const adjustPrimaryModCount = (delta: number) => {
     if (!primaryModId) return
     adjustModCount(primaryModId, delta)
+  }
+
+  const handleModIncrement = (cardId: string) => {
+    if (builderState.isLocked) return
+    adjustModCount(cardId, 1)
+  }
+
+  const handleModContext = (cardId: string) => {
+    const current = builderState.modCounts[cardId] ?? 0
+    if (builderState.isLocked || current <= 0) return
+    const cardName = getCard(cardId)?.name ?? cardId
+    setModPrompt({ id: cardId, qty: current, name: cardName })
+  }
+
+  const closeModPrompt = () => setModPrompt(null)
+
+  const handleModRemoveAction = (removeAll: boolean) => {
+    if (!modPrompt) return
+    const currentQty = builderState.modCounts[modPrompt.id] ?? 0
+    const delta = removeAll ? -currentQty : -1
+    if (delta !== 0) adjustModCount(modPrompt.id, delta)
+    closeModPrompt()
   }
 
   const adjustNullCount = (delta: number) => {
@@ -583,34 +643,24 @@ export default function DeckBuilder({
     }, {} as Record<string, {count:number, idxs:number[]}>)
     return Object.entries(groups).map(([id,g]) => {
       const card = getCard(id)
-      const lowerType = (card?.type ?? '').toLowerCase()
-      const isNullCard = (nullId && id === nullId) || lowerType === 'null'
-      const isMod = modIdSet.has(id) && !isNullCard
-      const typeLabel = isNullCard ? 'Null' : (isMod ? 'Modifier' : 'Base')
-      let modText = ''
-      let modTarget: string | null = null
       return (
-        <div key={id} className={`hand-card card ${isMod ? 'mod-card' : 'base-card'}`}>
-          <div className="card-header hand-card-header" style={{ gap: 12 }}>
-            <div className="card-title" style={{ minWidth: 0, flex: '1 1 auto' }}>
-              <div className="card-name">{card?.name ?? id} <span className="muted text-section">(x{g.count})</span></div>
-              {isMod && <div className="muted text-body">Cost {card?.cost ?? 0}</div>}
-              {!isMod && !isNullCard && <div className="muted text-body">Base</div>}
-              {isNullCard && <div className="muted text-body">Null</div>}
-              {isMod && (
-                <div className="hand-subtitle">
-                  <span className="hand-type">{typeLabel}</span>
-                </div>
-              )}
-            </div>
-            <div className="card-controls">
-                          </div>
+        <div key={id} className="discard-row">
+          <div className="discard-name">{card?.name ?? id}</div>
+          <div className="discard-actions">
+            <span className="discard-count">x{g.count}</span>
+            <button className="counter-btn" onClick={()=>returnDiscardGroupToDeck(id)}>Deck</button>
+            <button
+              className="counter-btn"
+              onClick={()=>returnDiscardGroupToHand(id, true)}
+              disabled={(builderState.hand ?? []).length >= (builderState.handLimit ?? DEFAULT_HAND_LIMIT)}
+            >
+              Hand
+            </button>
           </div>
-          {isMod && renderDetails(card ?? { id, name: id, type: typeLabel, cost: card?.cost ?? 0, text: '' as any })}
         </div>
       )
     })
-  }, [builderState.discard, builderState.hand, builderState.handLimit, getCard, modIdSet, nullId, returnDiscardGroupToDeck, returnDiscardGroupToHand])
+  }, [builderState.discard, builderState.hand, builderState.handLimit, getCard, returnDiscardGroupToDeck, returnDiscardGroupToHand])
 
   const groupedHandStacks = useMemo(() => {
     const handList = builderState.hand ?? []
@@ -644,9 +694,9 @@ export default function DeckBuilder({
 
       const cardStyle: React.CSSProperties = {
         zIndex: 100 - index,
-        flex: '0 0 230px',
-        minWidth: 198,
-        maxWidth: 242,
+        flex: '0 0 215px',
+        minWidth: 185,
+        maxWidth: 226,
         scrollSnapAlign: 'start',
       }
       const typeClass = isBase ? 'base-type' : isNull ? 'null-type' : 'mod-type'
@@ -793,7 +843,7 @@ export default function DeckBuilder({
     if (!showCardDetails) return null
     if (!card.details || card.details.length === 0) return null
     return (
-      <dl className="card-details text-body" style={{marginTop:8,marginBottom:0,width:'100%'}}>
+      <dl className="card-details text-body" style={{marginTop:15,marginBottom:0,width:'100%'}}>
         {card.details.map((detail) => (
           <React.Fragment key={`${card.id}-${detail.label}`}>
             <dt style={{fontWeight:600}}>{detail.label}</dt>
@@ -840,13 +890,22 @@ export default function DeckBuilder({
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 12,
-    padding: '10px 8px 14px',
+    width: 'calc(100vw + (var(--hand-bleed, 40px) * 2))',
+    minWidth: 'calc(100vw + (var(--hand-bleed, 40px) * 2))',
+    marginLeft: 'calc(-1 * var(--hand-bleed, 40px))',
+    marginRight: 'calc(-1 * var(--hand-bleed, 40px))',
+    boxSizing: 'border-box',
+    padding: 'var(--hand-pad-block-start, 12px) calc(var(--hand-pad-inline, 22px) + var(--hand-bleed, 40px)) var(--hand-pad-block-end, 18px)',
     overflowX: 'auto',
     scrollSnapType: 'x mandatory',
+    scrollPaddingInline: 'calc(var(--hand-pad-inline, 22px) + var(--hand-bleed, 40px) + 8px)',
     WebkitOverflowScrolling: 'touch',
   }
 
+  const skillGridClass = `card-grid base-card-grid skill-grid${showBuilderSections ? ' deck-builder-skill-grid' : ''}`
+
   return (
+    <>
     <main className="app-shell">
 
       {showBuilderSections && (
@@ -862,11 +921,10 @@ export default function DeckBuilder({
               {lockPill}
             </div>
           </div>
-          <section className="card-grid base-card-grid">
+          <section className="summary-stack">
             <div>
               <div className="muted text-body">Base Cards</div>
               {showBaseCounters && <div className="stat-large">{simpleCounters ? baseTotal : `${baseTotal} / ${baseTarget}`}</div>}
-              {!baseValid && !simpleCounters && <div className="status-warning text-body">Deck must contain exactly {baseTarget} base cards.</div>}
               {showBaseAdjusters && (
                 <div className="counter-inline" role="group" aria-label="Adjust base cards" style={{ marginTop: 8 }}>
                   <button className="counter-btn" onClick={() => adjustPrimaryBaseCount(-1)} disabled={builderState.isLocked}>-</button>
@@ -878,8 +936,7 @@ export default function DeckBuilder({
 
             <div>
               <div className="muted text-body">Null Cards</div>
-              <div className="stat-large">{builderState.nullCount}</div>
-              <div className="counter-inline" role="group" aria-label="Adjust null cards" style={{ marginTop: 8 }}>
+              <div className="counter-inline" role="group" aria-label="Adjust null cards" style={{ marginTop: 4, justifyContent: 'center' }}>
                 <button className="counter-btn" onClick={() => adjustNullCount(-1)} disabled={builderState.nullCount <= minNulls || builderState.isLocked}>-</button>
                 <div className="counter-value counter-pill">{builderState.nullCount}</div>
                 <button className="counter-btn" onClick={() => adjustNullCount(1)} disabled={builderState.isLocked}>+</button>
@@ -889,8 +946,7 @@ export default function DeckBuilder({
             {showModifierCapacity && (
               <div>
                 <div className="muted text-body">Modifier Capacity</div>
-                <div className="stat-large">{builderState.modifierCapacity}</div>
-                <div className="counter-inline" role="group" aria-label="Adjust modifier capacity" style={{ marginTop: 8 }}>
+                <div className="counter-inline" role="group" aria-label="Adjust modifier capacity" style={{ marginTop: 4, justifyContent: 'center' }}>
                   <button className="counter-btn" onClick={() => adjustModifierCapacity(-1)}>-</button>
                   <div className="counter-value counter-pill">{builderState.modifierCapacity}</div>
                   <button className="counter-btn" onClick={() => adjustModifierCapacity(1)}>+</button>
@@ -931,20 +987,46 @@ export default function DeckBuilder({
                   </div>
                   <div className="muted text-body">Tap a card to adjust counts.</div>
                 </div>
-                <div className="card-grid base-card-grid">
+                <div className={skillGridClass}>
                   {baseCards.map((card) => {
                     const qty = builderState.baseCounts[card.id] ?? 0
                     const isSelectedBase = activePlay?.baseId === card.id
+                    const startLongPress = () => {
+                      if (builderState.isLocked) return
+                      longPressFired.current = false
+                      longPressTimer.current = window.setTimeout(() => {
+                        longPressFired.current = true
+                        handleBaseContext(card.id)
+                      }, 600)
+                    }
+                    const cancelLongPress = () => {
+                      if (longPressTimer.current) {
+                        window.clearTimeout(longPressTimer.current)
+                        longPressTimer.current = null
+                      }
+                      longPressFired.current = false
+                    }
+                    const endPress = () => {
+                      const fired = longPressFired.current
+                      longPressFired.current = false
+                      cancelLongPress()
+                      if (!fired) {
+                        handleBaseIncrement(card.id)
+                      }
+                    }
                     return (
-                      <div key={card.id} className={`card base-card ${isSelectedBase ? 'is-selected' : ''}`}>
+                      <div
+                        key={card.id}
+                        className={`card base-card ${isSelectedBase ? 'is-selected' : ''}`}
+                        onContextMenu={(e) => { e.preventDefault(); handleBaseContext(card.id) }}
+                        onPointerDown={startLongPress}
+                        onPointerUp={endPress}
+                        onPointerLeave={cancelLongPress}
+                      >
                         <div className="card-header">
                           <div className="card-title" style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
                             <div className="card-name">{card.name}</div>
-                            <div className="card-controls card-controls-bottom">
-                              <button className="counter-btn" onClick={() => adjustBaseCount(card.id, -1)} disabled={qty === 0 || builderState.isLocked}>-</button>
-                              <div className="counter-value">{qty}</div>
-                              <button className="counter-btn" onClick={() => adjustBaseCount(card.id, 1)} disabled={baseTotal >= baseTarget || builderState.isLocked}>+</button>
-                            </div>
+                            <div className="counter-value counter-pill">{qty}</div>
                             {isSelectedBase && <div className="accent text-footnote">Selected Base</div>}
                           </div>
                         </div>
@@ -982,23 +1064,46 @@ export default function DeckBuilder({
                           modTarget = m[2]?.trim() || null
                         }
                       }
+                      const startModLongPress = () => {
+                        if (builderState.isLocked || qty <= 0) return
+                        modLongPressFired.current = false
+                        modLongPressTimer.current = window.setTimeout(() => {
+                          modLongPressFired.current = true
+                          handleModContext(card.id)
+                        }, 600)
+                      }
+                      const cancelModLongPress = () => {
+                        if (modLongPressTimer.current) {
+                          window.clearTimeout(modLongPressTimer.current)
+                          modLongPressTimer.current = null
+                        }
+                        modLongPressFired.current = false
+                      }
+                      const endModPress = () => {
+                        const fired = modLongPressFired.current
+                        cancelModLongPress()
+                        if (!fired) handleModIncrement(card.id)
+                      }
                       return (
-                        <div key={card.id} className={`card mod-card ${isAttached ? 'is-selected' : ''}`}>
+                        <div
+                          key={card.id}
+                          className={`card mod-card ${isAttached ? 'is-selected' : ''}`}
+                          onContextMenu={(e) => { e.preventDefault(); handleModContext(card.id) }}
+                          onPointerDown={startModLongPress}
+                          onPointerUp={endModPress}
+                          onPointerLeave={cancelModLongPress}
+                        >
                           <div className="card-header" style={{ gap: 12 }}>
                             <div className="card-title" style={{ minWidth: 0, flex: '1 1 auto' }}>
                               <div className="card-name">{card.name}</div>
                               <div className="muted text-body">Cost {cost}</div>
                               {isAttached && <div className="accent text-footnote" style={{ marginTop: 4 }}>Attached</div>}
                             </div>
-                            <div className="card-controls">
-                              <button className="counter-btn" onClick={() => adjustModCount(card.id, -1)} disabled={qty === 0 || builderState.isLocked}>-</button>
-                              <div className="counter-value">{qty}</div>
-                              <button className="counter-btn" onClick={() => adjustModCount(card.id, 1)} disabled={builderState.isLocked || !canAddMore}>+</button>
-                            </div>
+                            <div className="counter-value counter-pill" style={{ minWidth: 34, textAlign: 'center' }}>{qty}</div>
                           </div>
                           {!canAddMore && <div className="capacity-reached">Capacity reached</div>}
                           {showCardDetails && (!card.details || card.details.length === 0) && (
-                            <div className="text-body card-text" style={{ margin: 0 }}>
+                            <div className="text-body card-text" style={{ marginTop: 15, marginBottom: 0 }}>
                               {modText && <div>{modText}</div>}
                               {modTarget && <div className="target-line">Target: {modTarget}</div>}
                               {!modText && !modTarget && card.text && <div>{card.text}</div>}
@@ -1019,7 +1124,7 @@ export default function DeckBuilder({
       {showOpsSections && (
         <div className="page">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <section className="card-grid base-card-grid">
+            <section className={skillGridClass}>
               <div style={{ marginBottom: 12 }}>
                 <div className="hand-carousel">
                   <div
@@ -1030,31 +1135,29 @@ export default function DeckBuilder({
                   >
                     {groupedHandStacks.length > 0 ? groupedHandStacks : <div className="muted">No cards in hand</div>}
                   </div>
-                  {(handNavState.left || handNavState.right) && (
-                    <div className="hand-nav" aria-hidden="true">
-                      <button
-                        className="hand-nav-btn"
-                        onClick={() => scrollHand(-1)}
-                        disabled={!handNavState.left}
-                        aria-label="Scroll hand left"
-                        type="button"
-                      >
-                        ‹
-                      </button>
-                      <button
-                        className="hand-nav-btn"
-                        onClick={() => scrollHand(1)}
-                        disabled={!handNavState.right}
-                        aria-label="Scroll hand right"
-                        type="button"
-                      >
-                        ›
-                      </button>
+                  <div className="hand-nav hand-nav-with-count">
+                    <button
+                      className="hand-nav-btn"
+                      onClick={() => scrollHand(-1)}
+                      disabled={!handNavState.left}
+                      aria-label="Scroll hand left"
+                      type="button"
+                    >
+                      ‹
+                    </button>
+                    <div className="hand-count-inline text-body">
+                      Hand: <strong>{(builderState.hand ?? []).length}</strong> / {builderState.handLimit ?? DEFAULT_HAND_LIMIT}
                     </div>
-                  )}
-                </div>
-                <div className="text-body hand-count-row" style={{ marginTop: 8 }}>
-                  Hand: <strong>{(builderState.hand ?? []).length}</strong> / {builderState.handLimit ?? DEFAULT_HAND_LIMIT}
+                    <button
+                      className="hand-nav-btn"
+                      onClick={() => scrollHand(1)}
+                      disabled={!handNavState.right}
+                      aria-label="Scroll hand right"
+                      type="button"
+                    >
+                      ›
+                    </button>
+                  </div>
                 </div>
                 {activePlay && (
                   <div className="play-overlay" style={{ marginTop: 8 }}>
@@ -1091,24 +1194,15 @@ export default function DeckBuilder({
             </section>
 
             {/* Deck Operations directly below the hand */}
-            <section className="card-grid base-card-grid">
+            <section className={skillGridClass}>
               <div>
                 <h2>Deck Operations</h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  {lockPill}
-                  <button
-                    className={needsLock ? 'cta-pulse' : undefined}
-                    onClick={() => toggleLockDeck()}
-                  >
-                    {builderState.isLocked ? 'Unlock Deck' : 'Lock Deck'}
-                  </button>
-                </div>
                 <div className="ops-toolbar">
                   <button
-                    className={builderState.isLocked && !hasBuiltDeck ? 'cta-pulse' : undefined}
-                    onClick={() => generateDeck(true)}
+                    onClick={handleDraw}
+                    disabled={(builderState.hand ?? []).length >= (builderState.handLimit ?? DEFAULT_HAND_LIMIT)}
                   >
-                    Build Deck
+                    Draw 1
                   </button>
                   <button
                     className={builderState.isLocked && hasBuiltDeck && !hasShuffledDeck ? 'cta-pulse' : undefined}
@@ -1117,16 +1211,21 @@ export default function DeckBuilder({
                     Shuffle
                   </button>
                   <button
-                    onClick={handleDraw}
-                    disabled={(builderState.hand ?? []).length >= (builderState.handLimit ?? DEFAULT_HAND_LIMIT)}
+                    className={builderState.isLocked && !hasBuiltDeck ? 'cta-pulse' : undefined}
+                    onClick={() => generateDeck(true)}
                   >
-                    Draw 1
+                    Build Deck
                   </button>
+                  <button
+                    className={needsLock ? 'cta-pulse' : undefined}
+                    onClick={() => toggleLockDeck()}
+                  >
+                    {builderState.isLocked ? 'Unlock Deck' : 'Lock Deck'}
+                  </button>
+                  {lockPill}
                 </div>
                 {opsError && <div className="ops-error">{opsError}</div>}
                 <div style={{ marginTop: 12 }}>
-                  <div className="text-body">Deck Count: <strong>{(builderState.deck ?? []).length}</strong></div>
-                  <div className="text-body">Discard Count: <strong>{(builderState.discard ?? []).length}</strong></div>
                   <div style={{ marginTop: 8 }}>
                     <label style={{ fontWeight: 600 }}>Hand Limit</label>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
@@ -1146,6 +1245,9 @@ export default function DeckBuilder({
                       <div className="muted text-body">Active cap for hand cards.</div>
                     </div>
                   </div>
+                  <div style={{ marginTop: 12 }} className="text-body">
+                    Cards Remaining: <strong>{(builderState.deck ?? []).length}</strong>
+                  </div>
                   <div style={{ marginTop: 8 }}>
                     {/* Saved decks section removed */}
                   </div>
@@ -1157,58 +1259,13 @@ export default function DeckBuilder({
           <section style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
             <div>
               <h3>Discard Pile</h3>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                <div className="text-body">Discard Count: <strong>{(builderState.discard ?? []).length}</strong></div>
                 <div className="muted text-body">Duplicates stacked</div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div className="discard-list">
                 {groupedDiscardElements}
-                {(groupedDiscardElements?.length ?? 0) === 0 && (builderState.discard ?? []).map((item, idx) => {
-                  const card = getCard(item.id)
-                  const lowerType = (card?.type ?? '').toLowerCase()
-                  const isNullCard = (nullId && item.id === nullId) || lowerType === 'null'
-                  const isMod = modIdSet.has(item.id) && !isNullCard
-                  const typeLabel = isNullCard ? 'Null' : (isMod ? 'Modifier' : 'Base')
-                  let modText = card?.text ?? ''
-                  let modTarget: string | null = null
-                  if (isMod && card?.text) {
-                    const m = card.text.match(/^(.*?)(?:\s*[•·]\s*|\s+)Target:\s*(.*)$/i)
-                    if (m) {
-                      modText = m[1].trim()
-                      modTarget = m[2]?.trim() || null
-                    }
-                  }
-                  return (
-                    <div key={idx} className={`hand-card card ${isMod ? 'mod-card' : 'base-card'}`}>
-                      <div className="card-header" style={{ gap: 12 }}>
-                        <div className="card-title" style={{ minWidth: 0, flex: '1 1 auto' }}>
-                          <div className="card-name" style={{ fontWeight: 700 }}>{card?.name ?? item.id}</div>
-                          {isMod && <div className="muted text-body">Cost {card?.cost ?? 0}</div>}
-                          {!isMod && !isNullCard && <div className="muted text-body">Base</div>}
-                          {isNullCard && <div className="muted text-body">Null</div>}
-                          {isMod && (
-                            <div className="hand-subtitle">
-                              <span className="hand-type">{typeLabel}</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="card-controls">
-                                                  </div>
-                      </div>
-                      {isMod && (
-                        <>
-                          <div className="text-body card-text" style={{ margin: '8px 0 0 0' }}>
-                            {modText && <div>{modText}</div>}
-                            {modTarget && <div className="target-line">Target: {modTarget}</div>}
-                            {!modText && !modTarget && card?.text && <div>{card.text}</div>}
-                          </div>
-                          {renderDetails(card ?? { id: item.id, name: item.id, type: typeLabel, cost: card?.cost ?? 0, text: '' as any })}
-                        </>
-                      )}
-                      <div className="muted text-body">#{idx + 1} • {item.origin === 'played' ? 'Played' : 'Discarded'}</div>
-                    </div>
-                  )
-                })}
-                {((builderState.discard ?? []).length === 0) && <div className="muted">Discard pile is empty</div>}
+                {(groupedDiscardElements?.length ?? 0) === 0 && <div className="muted">Discard pile is empty</div>}
               </div>
             </div>
           </section>
@@ -1216,5 +1273,32 @@ export default function DeckBuilder({
       )}
 
     </main>
+      {basePrompt && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#0f1625', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 16, width: 'min(320px, 90vw)', boxShadow: '0 10px 30px rgba(0,0,0,0.35)', color: '#fff', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ fontWeight: 700, fontSize: 18 }}>Adjust {basePrompt.name ?? basePrompt.id}</div>
+            <div style={{ color: 'rgba(255,255,255,0.75)' }}>Current count: {basePrompt.qty}</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button className="counter-btn" style={{ flex: '1 1 120px' }} onClick={() => handleBaseRemoveAction(false)} disabled={builderState.isLocked}>Remove 1</button>
+              <button className="counter-btn" style={{ flex: '1 1 120px' }} onClick={() => handleBaseRemoveAction(true)} disabled={builderState.isLocked}>Remove All</button>
+              <button className="counter-btn" style={{ flex: '1 1 120px' }} onClick={closeBasePrompt}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {modPrompt && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#0f1625', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 16, width: 'min(320px, 90vw)', boxShadow: '0 10px 30px rgba(0,0,0,0.35)', color: '#fff', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ fontWeight: 700, fontSize: 18 }}>Adjust {modPrompt.name ?? modPrompt.id}</div>
+            <div style={{ color: 'rgba(255,255,255,0.75)' }}>Current count: {modPrompt.qty}</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button className="counter-btn" style={{ flex: '1 1 120px' }} onClick={() => handleModRemoveAction(false)} disabled={builderState.isLocked}>Remove 1</button>
+              <button className="counter-btn" style={{ flex: '1 1 120px' }} onClick={() => handleModRemoveAction(true)} disabled={builderState.isLocked}>Remove All</button>
+              <button className="counter-btn" style={{ flex: '1 1 120px' }} onClick={closeModPrompt}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
